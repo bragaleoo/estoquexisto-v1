@@ -1,0 +1,136 @@
+
+import React, { useState, useContext } from 'react';
+import Dashboard from './Dashboard';
+import Cadastros from './Cadastros';
+import Relatorios from './Relatorios';
+import CalculadoraGanhos from './CalculadoraGanhos';
+import { Page, UserProfile } from '../types';
+import { AppContext } from '../App';
+import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, CreditCardIcon, XIcon, HistoryIcon } from './ui/Icons';
+
+const NavItem: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}> = ({ icon, label, isActive, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center w-full px-4 py-3 text-left transition-colors duration-200 font-medium ${
+      isActive
+        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 rounded-lg'
+        : 'text-gray-700 hover:bg-gray-200 rounded-lg'
+    }`}
+  >
+    {icon}
+    <span className="ml-3">{label}</span>
+  </button>
+);
+
+const Layout: React.FC = () => {
+  const context = useContext(AppContext);
+  const [page, setPage] = useState<Page>('dashboard');
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+
+  if (!context) return null;
+  const { currentUser, logout } = context;
+
+  const renderPage = () => {
+    switch (page) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'cadastros':
+        return <Cadastros />;
+      case 'relatorios':
+        return <Relatorios />;
+      case 'calculadora':
+        return <CalculadoraGanhos />;
+      default:
+        return <Dashboard />;
+    }
+  };
+
+  const navItems = [
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor', 'Consultor'] },
+    { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
+    { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'calculadora' as Page, label: 'Calculadora de Ganhos', icon: <HistoryIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Consultor'] },
+  ];
+
+  const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser?.perfil || ''));
+  
+  const sidebarContent = (
+     <div className="h-full flex flex-col bg-white text-gray-800 border-r border-gray-200">
+        <div className="flex items-center justify-center p-4 border-b h-16">
+          <CreditCardIcon className="w-8 h-8 text-blue-600"/>
+          <h1 className="text-xl font-black ml-2 tracking-tight text-gray-900">StockSys</h1>
+        </div>
+        <div className="p-4">
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <p className="text-sm font-bold text-gray-900">{currentUser?.nome}</p>
+            <p className="text-xs text-gray-600 font-semibold">{currentUser?.perfil}</p>
+          </div>
+        </div>
+        <nav className="flex-grow px-2 space-y-1">
+            {filteredNavItems.map(item => (
+                <NavItem
+                    key={item.id}
+                    icon={item.icon}
+                    label={item.label}
+                    isActive={page === item.id}
+                    onClick={() => {
+                        setPage(item.id);
+                        setSidebarOpen(false);
+                    }}
+                />
+            ))}
+        </nav>
+        <div className="p-4 mt-auto border-t">
+          <button onClick={logout} className="flex items-center w-full px-4 py-3 text-left text-gray-700 font-bold hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors duration-200">
+            <LogoutIcon className="w-5 h-5" />
+            <span className="ml-3">Sair da conta</span>
+          </button>
+        </div>
+      </div>
+  );
+
+  return (
+    <div className="flex h-screen bg-gray-100 font-sans">
+      <aside className="hidden md:block md:w-64 flex-shrink-0">
+        {sidebarContent}
+      </aside>
+
+      <div className={`fixed inset-0 z-30 transition-transform transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:hidden`}>
+         <div className="relative w-64 h-full">
+            {sidebarContent}
+         </div>
+         <div className="absolute top-4 right-4">
+             <button onClick={() => setSidebarOpen(false)} className="text-white">
+                <XIcon className="w-6 h-6" />
+             </button>
+         </div>
+      </div>
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/60 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>}
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="md:hidden flex justify-between items-center bg-white p-4 border-b">
+            <div className="flex items-center">
+                <CreditCardIcon className="w-7 h-7 text-blue-600"/>
+                <h1 className="text-lg font-black ml-2 text-gray-900">StockSys</h1>
+            </div>
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-800 p-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+          </button>
+        </header>
+
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50">
+          {renderPage()}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default Layout;

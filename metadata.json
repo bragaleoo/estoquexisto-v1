@@ -1,0 +1,5 @@
+{
+  "name": "Gestão de Estoque de Maquininhas",
+  "description": "Uma aplicação web para a gestão de estoque de máquinas de cartão de crédito e débito, permitindo o controle de vendas por supervisor e a emissão de relatórios.",
+  "requestFramePermissions": []
+}
