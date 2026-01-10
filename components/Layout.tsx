@@ -6,7 +6,7 @@ import Relatorios from './Relatorios';
 import CalculadoraGanhos from './CalculadoraGanhos';
 import { Page, UserProfile } from '../types';
 import { AppContext } from '../App';
-import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, CreditCardIcon, XIcon, HistoryIcon } from './ui/Icons';
+import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon } from './ui/Icons';
 
 const NavItem: React.FC<{
   icon: React.ReactNode;
@@ -18,12 +18,12 @@ const NavItem: React.FC<{
     onClick={onClick}
     className={`flex items-center w-full px-4 py-3 text-left transition-colors duration-200 font-medium ${
       isActive
-        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 rounded-lg'
+        ? 'bg-slate-900 text-white shadow-lg shadow-slate-200 rounded-lg'
         : 'text-gray-700 hover:bg-gray-200 rounded-lg'
     }`}
   >
     {icon}
-    <span className="ml-3">{label}</span>
+    <span className="ml-3 font-black text-[11px] uppercase tracking-wider">{label}</span>
   </button>
 );
 
@@ -60,15 +60,14 @@ const Layout: React.FC = () => {
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser?.perfil || ''));
   
   const sidebarContent = (
-     <div className="h-full flex flex-col bg-white text-gray-800 border-r border-gray-200">
-        <div className="flex items-center justify-center p-4 border-b h-16">
-          <CreditCardIcon className="w-8 h-8 text-blue-600"/>
-          <h1 className="text-xl font-black ml-2 tracking-tight text-gray-900">StockSys</h1>
+     <div className="h-full flex flex-col bg-white text-gray-800 border-r-2 border-gray-100">
+        <div className="flex flex-col items-center justify-center py-10 px-6 border-b-2 border-gray-50 bg-slate-50/30">
+          <XistoLogo variant="full" className="scale-110" />
         </div>
         <div className="p-4">
-          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-            <p className="text-sm font-bold text-gray-900">{currentUser?.nome}</p>
-            <p className="text-xs text-gray-600 font-semibold">{currentUser?.perfil}</p>
+          <div className="bg-slate-950 p-5 rounded-2xl shadow-xl shadow-slate-200 border border-slate-800">
+            <p className="text-xs font-black text-white uppercase tracking-tight truncate">{currentUser?.nome}</p>
+            <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">{currentUser?.perfil}</p>
           </div>
         </div>
         <nav className="flex-grow px-2 space-y-1">
@@ -85,8 +84,8 @@ const Layout: React.FC = () => {
                 />
             ))}
         </nav>
-        <div className="p-4 mt-auto border-t">
-          <button onClick={logout} className="flex items-center w-full px-4 py-3 text-left text-gray-700 font-bold hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors duration-200">
+        <div className="p-4 mt-auto border-t-2 border-gray-50">
+          <button onClick={logout} className="flex items-center w-full px-4 py-3 text-left text-gray-700 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors duration-200">
             <LogoutIcon className="w-5 h-5" />
             <span className="ml-3">Sair da conta</span>
           </button>
@@ -105,20 +104,17 @@ const Layout: React.FC = () => {
             {sidebarContent}
          </div>
          <div className="absolute top-4 right-4">
-             <button onClick={() => setSidebarOpen(false)} className="text-white">
+             <button onClick={() => setSidebarOpen(false)} className="bg-slate-900 p-2 rounded-full text-white">
                 <XIcon className="w-6 h-6" />
              </button>
          </div>
       </div>
-      {isSidebarOpen && <div className="fixed inset-0 bg-black/60 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="md:hidden flex justify-between items-center bg-white p-4 border-b">
-            <div className="flex items-center">
-                <CreditCardIcon className="w-7 h-7 text-blue-600"/>
-                <h1 className="text-lg font-black ml-2 text-gray-900">StockSys</h1>
-            </div>
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-800 p-1">
+        <header className="md:hidden flex justify-between items-center bg-white p-4 border-b-2 border-gray-100 shadow-sm">
+            <XistoLogo variant="full" />
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-800 p-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
