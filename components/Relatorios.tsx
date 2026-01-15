@@ -55,8 +55,8 @@ const Relatorios: React.FC = () => {
         const total = maquinasFiltradas.length;
         const disp = maquinasFiltradas.filter(m => m.status_estoque === 'DISPONIVEL').length;
         const atrib = maquinasFiltradas.filter(m => m.status_estoque === 'ATRIBUIDA').length;
-        const baix = maquinasFiltradas.filter(m => m.status_estoque === 'BAIXADA').length;
-        return { total, disp, atrib, baix };
+        const vend = maquinasFiltradas.filter(m => m.status_estoque === 'VENDIDA').length;
+        return { total, disp, atrib, vend };
     }, [maquinasFiltradas]);
 
     return (
@@ -86,7 +86,7 @@ const Relatorios: React.FC = () => {
                             <option value="">TODOS OS STATUS</option>
                             <option value="DISPONIVEL">DISPONÍVEL</option>
                             <option value="ATRIBUIDA">ATRIBUÍDA</option>
-                            <option value="BAIXADA">BAIXADA</option>
+                            <option value="VENDIDA">VENDIDA</option>
                         </select>
                     </div>
                     <div>
@@ -118,7 +118,7 @@ const Relatorios: React.FC = () => {
                 <Card title="Total Filtrado" value={stats.total} icon={<CreditCardIcon className="w-6 h-6 text-white" />} color="bg-slate-900" />
                 <Card title="Disponíveis" value={stats.disp} icon={<CheckCircleIcon className="w-6 h-6 text-white" />} color="bg-emerald-700" />
                 <Card title="Atribuídas" value={stats.atrib} icon={<ListIcon className="w-6 h-6 text-white" />} color="bg-indigo-800" />
-                <Card title="Baixadas" value={stats.baix} icon={<ExitIcon className="w-6 h-6 text-white" />} color="bg-red-700" />
+                <Card title="Vendidas" value={stats.vend} icon={<ExitIcon className="w-6 h-6 text-white" />} color="bg-red-700" />
             </div>
 
             <div className="bg-white rounded-[2.5rem] shadow-sm border-2 border-slate-200 overflow-hidden">
@@ -163,10 +163,10 @@ const Relatorios: React.FC = () => {
                                                 <span className="text-indigo-600">Atribuído:</span>
                                                 <span className="text-slate-950">{m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'}</span>
                                             </div>
-                                            {m.status_estoque === 'BAIXADA' && (
+                                            {m.status_estoque === 'VENDIDA' && (
                                                 <div className="flex justify-between">
-                                                    <span className="text-red-600">Baixado:</span>
-                                                    <span className="text-slate-950">{m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'}</span>
+                                                    <span className="text-red-600">Vendido:</span>
+                                                    <span className="text-slate-950">{m.vendido_em ? new Date(m.vendido_em).toLocaleDateString() : '-'}</span>
                                                 </div>
                                             )}
                                         </div>

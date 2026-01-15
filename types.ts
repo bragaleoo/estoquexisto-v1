@@ -3,8 +3,8 @@ export type Perfil = 'Administrador' | 'Estoquista' | 'Supervisor' | 'Consultor'
 
 export type StatusImportacao = 'PARCIAL' | 'COMPLETA';
 export type StatusItemImportacao = 'INSERIDO' | 'DUPLICADO_ARQUIVO' | 'DUPLICADO_SISTEMA' | 'INVALIDO';
-export type StatusEstoque = 'DISPONIVEL' | 'ATRIBUIDA' | 'BAIXADA';
-export type MotivoBaixa = 'VENDA' | 'ERRO_OPERACIONAL' | 'DEVOLUCAO' | 'OUTRO';
+export type StatusEstoque = 'DISPONIVEL' | 'ATRIBUIDA' | 'VENDIDA';
+export type MotivoVenda = 'VENDA' | 'POS_VENDA' | 'ERRO_OPERACIONAL' | 'DEVOLUCAO' | 'OUTRO';
 
 export interface Pedido {
   id: string;
@@ -25,17 +25,17 @@ export interface Maquina {
   supervisor_id?: number;
   consultor_nome?: string;
   atribuido_em?: string;
-  baixado_em?: string;
-  baixado_por?: string;
-  motivo_baixa?: MotivoBaixa;
-  observacao_baixa?: string;
+  vendido_em?: string;
+  vendido_por?: string;
+  motivo_venda?: MotivoVenda;
+  observacao_venda?: string;
   criado_em: string;
 }
 
 export interface EventoMaquina {
     id: string;
     maquina_id: string;
-    tipo_evento: 'IMPORTADA' | 'ATRIBUICAO' | 'BAIXA' | 'DESFAZER_BAIXA';
+    tipo_evento: 'IMPORTADA' | 'ATRIBUICAO' | 'EDICAO' | 'VENDA' | 'DESFAZER_VENDA';
     criado_em: string;
     criado_por: string;
     justificativa?: string;
