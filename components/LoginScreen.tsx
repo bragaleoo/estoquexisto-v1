@@ -21,19 +21,39 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const user = username.trim().toLowerCase();
     const pass = password.trim();
 
+    // Acesso Administrativo e Logística
     if (user === 'admxisto' && pass === '794613@') {
       onLogin({ perfil: 'Administrador', nome: 'Administrador Xisto' });
+      return;
     } 
-    else if (user === 'estoquexisto' && pass === '316497@') {
+    if (user === 'estoquexisto' && pass === '316497@') {
       onLogin({ perfil: 'Estoquista', nome: 'Logística Xisto' });
+      return;
     } 
-    else if (user === 'supervisor1' && pass === '172839@') {
-      const supervisor = SUPERVISORES[0];
-      onLogin({ perfil: 'Supervisor', supervisorId: supervisor.id, nome: supervisor.nome });
-    } 
-    else {
-      setError('ACESSO NEGADO: VERIFIQUE SUAS CREDENCIAIS.');
+
+    // Mapeamento de Supervisores (Operação)
+    const supervisorCreds: Record<string, { pass: string, id: number }> = {
+        'aju01': { pass: '134679@', id: 1 },
+        'aju02': { pass: '123654@', id: 2 },
+        'aju03': { pass: '789456@', id: 3 },
+        'se04':  { pass: '654321@', id: 4 },
+        'se05':  { pass: '987654@', id: 5 },
+        'mac01': { pass: '654987@', id: 6 },
+        'mac02': { pass: '123789@', id: 7 },
+    };
+
+    if (supervisorCreds[user]) {
+        const cred = supervisorCreds[user];
+        if (pass === cred.pass) {
+            const supervisorData = SUPERVISORES.find(s => s.id === cred.id);
+            if (supervisorData) {
+                onLogin({ perfil: 'Supervisor', supervisorId: supervisorData.id, nome: supervisorData.nome });
+                return;
+            }
+        }
     }
+
+    setError('ACESSO NEGADO: VERIFIQUE SUAS CREDENCIAIS.');
   };
 
   const loginAsConsultor = () => {

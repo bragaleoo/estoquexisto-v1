@@ -38,7 +38,7 @@ const Cadastros: React.FC = () => {
 
     if (!context) return null;
     const { pedidos, maquinas, atribuirEmLote, venderEmLote, atualizarMaquina, currentUser } = context;
-    const isReadOnly = currentUser?.perfil === 'Supervisor';
+    const isSupervisor = currentUser?.perfil === 'Supervisor';
 
     // Reseta página ao mudar filtros
     useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterData, filterOp, filterConsultor, showVendidas, filterStatus]);
@@ -51,7 +51,7 @@ const Cadastros: React.FC = () => {
         let list = maquinas;
 
         // 1. Filtro de Permissão (Supervisor vê apenas as suas)
-        if (isReadOnly) {
+        if (isSupervisor) {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
         }
 
@@ -72,7 +72,7 @@ const Cadastros: React.FC = () => {
 
             return matchPedido && matchSerial && matchData && matchStatus && matchOp && matchConsultor;
         });
-    }, [maquinas, pedidos, isReadOnly, currentUser, showVendidas, filterPedido, filterSerial, filterData, filterStatus, filterOp, filterConsultor]);
+    }, [maquinas, pedidos, isSupervisor, currentUser, showVendidas, filterPedido, filterSerial, filterData, filterStatus, filterOp, filterConsultor]);
 
     // Paginação
     const paginatedInventory = useMemo(() => {
@@ -83,7 +83,7 @@ const Cadastros: React.FC = () => {
     const totalPages = Math.ceil(filteredInventory.length / itemsPerPage);
 
     const toggleSelect = (id: string) => {
-        if (isReadOnly) return;
+        if (isSupervisor) return;
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
@@ -124,10 +124,10 @@ const Cadastros: React.FC = () => {
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Estoque Geral</h1>
                     <p className="text-slate-900 font-black uppercase text-[10px] tracking-widest">
-                        {isReadOnly ? 'Consulta de estoque atribuído.' : 'Gerenciamento completo de ativos.'}
+                        {isSupervisor ? 'Consulta de estoque atribuído.' : 'Gerenciamento completo de ativos.'}
                     </p>
                 </div>
-                {!isReadOnly && (
+                {!isSupervisor && (
                     <div className="flex gap-4">
                         {selectedIds.length > 0 && (
                             <>
@@ -237,7 +237,7 @@ const Cadastros: React.FC = () => {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-100 text-slate-950 font-black border-b-2 border-slate-200 uppercase text-[10px]">
                             <tr>
-                                {!isReadOnly && <th className="p-5 w-10 text-center"><input type="checkbox" className="w-4 h-4 accent-blue-700" onChange={(e) => {
+                                {!isSupervisor && <th className="p-5 w-10 text-center"><input type="checkbox" className="w-4 h-4 accent-blue-700" onChange={(e) => {
                                     if(e.target.checked) setSelectedIds(paginatedInventory.map(m => m.id));
                                     else setSelectedIds([]);
                                 }} checked={paginatedInventory.length > 0 && selectedIds.length >= paginatedInventory.length} /></th>}
@@ -245,7 +245,7 @@ const Cadastros: React.FC = () => {
                                 <th className="p-5">Número de Serial</th>
                                 <th className="p-5">Status</th>
                                 <th className="p-5">Responsável / Operação</th>
-                                {!isReadOnly && !showVendidas && <th className="p-5 w-10"></th>}
+                                {!showVendidas && <th className="p-5 w-10"></th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
@@ -253,7 +253,7 @@ const Cadastros: React.FC = () => {
                                 const pedido = pedidos.find(p => p.id === m.pedido_id);
                                 return (
                                     <tr key={m.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => toggleSelect(m.id)}>
-                                        {!isReadOnly && <td className="p-5 text-center"><input type="checkbox" checked={selectedIds.includes(m.id)} readOnly className="w-5 h-5 accent-blue-700" /></td>}
+                                        {!isSupervisor && <td className="p-5 text-center"><input type="checkbox" checked={selectedIds.includes(m.id)} readOnly className="w-5 h-5 accent-blue-700" /></td>}
                                         <td className="p-5">
                                             <p className="font-black text-blue-800 text-xs uppercase">{pedido?.codigo_pedido || 'N/A'}</p>
                                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-tight mt-1">{new Date(m.criado_em).toLocaleDateString()}</p>
@@ -268,7 +268,7 @@ const Cadastros: React.FC = () => {
                                             <p className="font-black text-slate-900 text-xs">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
                                             <p className="text-[9px] font-black text-slate-600 uppercase">{m.consultor_nome || 'N/A'}</p>
                                         </td>
-                                        {!isReadOnly && !showVendidas && (
+                                        {!showVendidas && (
                                             <td className="p-5">
                                                 <button 
                                                     onClick={(e) => openEditModal(e, m)}
@@ -361,10 +361,16 @@ const Cadastros: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação</label>
-                        <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={editData.supervisor} onChange={e => setEditData({...editData, supervisor: e.target.value})}>
+                        <select 
+                            disabled={isSupervisor}
+                            className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50 disabled:bg-slate-100" 
+                            value={editData.supervisor} 
+                            onChange={e => setEditData({...editData, supervisor: e.target.value})}
+                        >
                             <option value="">SELECIONE A OPERAÇÃO *</option>
                             {SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                         </select>
+                        {isSupervisor && <p className="text-[9px] text-red-500 font-black mt-1 uppercase">Você só pode alterar o consultor.</p>}
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>

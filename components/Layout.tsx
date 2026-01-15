@@ -30,9 +30,11 @@ const NavItem: React.FC<{
 const Layout: React.FC = () => {
   const context = useContext(AppContext);
   
-  // Define a página inicial baseada no perfil: Consultores vão direto para calculadora
+  // Define a página inicial baseada no perfil
   const [page, setPage] = useState<Page>(() => {
-    return context?.currentUser?.perfil === 'Consultor' ? 'calculadora' : 'dashboard';
+    if (context?.currentUser?.perfil === 'Consultor') return 'calculadora';
+    if (context?.currentUser?.perfil === 'Supervisor') return 'cadastros'; // Supervisor vai direto para estoque
+    return 'dashboard';
   });
   
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -51,13 +53,16 @@ const Layout: React.FC = () => {
       case 'calculadora':
         return <CalculadoraGanhos />;
       default:
-        return currentUser?.perfil === 'Consultor' ? <CalculadoraGanhos /> : <Dashboard />;
+        // Fallback seguro
+        if (currentUser?.perfil === 'Consultor') return <CalculadoraGanhos />;
+        if (currentUser?.perfil === 'Supervisor') return <Cadastros />;
+        return <Dashboard />;
     }
   };
 
   const navItems = [
-    // Consultor removido do Dashboard
-    { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
+    // Dashboard apenas para Admin e Estoquista
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'calculadora' as Page, label: 'Calculadora de Ganhos', icon: <HistoryIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Consultor'] },
