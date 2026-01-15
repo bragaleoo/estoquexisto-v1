@@ -1,6 +1,6 @@
 
 import React, { useState, createContext, useMemo, useEffect } from 'react';
-import { Maquina, UserProfile, Pedido, Importacao, ImportacaoItem, EventoMaquina, MotivoVenda, StatusEstoque, Devolucao } from './types';
+import { Maquina, UserProfile, Pedido, Importacao, ImportacaoItem, EventoMaquina, MotivoBaixa, StatusEstoque, Devolucao, Regiao } from './types';
 import LoginScreen from './components/LoginScreen';
 import Layout from './components/Layout';
 
@@ -12,11 +12,11 @@ interface AppContextType {
   importacaoItens: ImportacaoItem[];
   eventos: EventoMaquina[];
   devolucoes: Devolucao[];
-  executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string) => void;
+  executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => void;
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => void;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string) => void;
-  venderEmLote: (maquinaIds: string[], motivo: MotivoVenda, observacao: string) => void;
-  desfazerVenda: (maquinaId: string, justificativa: string) => void;
+  baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string) => void;
+  desfazerBaixa: (maquinaId: string, justificativa: string) => void;
   registrarDevolucao: (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => void;
   logout: () => void;
 }
@@ -45,7 +45,7 @@ const App: React.FC = () => {
   const handleLogin = (perfil: UserProfile) => setCurrentUser(perfil);
   const handleLogout = () => setCurrentUser(null);
 
-  const executarImportacao = (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string) => {
+  const executarImportacao = (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
     const importId = crypto.randomUUID();
     let pedidoExistente = pedidos.find(p => p.codigo_pedido === codigoPedido);
     const pedidoId = pedidoExistente ? pedidoExistente.id : crypto.randomUUID();
@@ -92,7 +92,8 @@ const App: React.FC = () => {
             ...p, 
             qtd_importada: p.qtd_importada + counts.inseridos, 
             status_importacao: (qtdEsperada && (p.qtd_importada + counts.inseridos) >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL',
-            qtd_esperada: qtdEsperada || p.qtd_esperada
+            qtd_esperada: qtdEsperada || p.qtd_esperada,
+            regiao: regiao || p.regiao // Atualiza região se fornecida, senão mantém
             // Nota: Não atualizamos a data de criação de um pedido existente para manter histórico, 
             // mas as novas máquinas usarão a data informada.
         } : p));
@@ -103,6 +104,7 @@ const App: React.FC = () => {
             qtd_esperada: qtdEsperada,
             qtd_importada: counts.inseridos,
             status_importacao: (qtdEsperada && counts.inseridos >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL',
+            regiao: regiao,
             criado_em: dataBase, // Novo pedido usa a data informada
             criado_por: currentUser?.nome || 'Sistema'
         }, ...prev]);
@@ -163,7 +165,7 @@ const App: React.FC = () => {
                 ...m, 
                 supervisor_id: supervisorId, 
                 consultor_nome: consultorNome, 
-                status_estoque: m.status_estoque === 'VENDIDA' ? 'VENDIDA' : novoStatus,
+                status_estoque: m.status_estoque === 'BAIXADA' ? 'BAIXADA' : novoStatus,
                 atribuido_em: m.atribuido_em || timestamp 
             };
         }
@@ -171,7 +173,7 @@ const App: React.FC = () => {
     }));
   };
 
-  const venderEmLote = (maquinaIds: string[], motivo: MotivoVenda, observacao: string) => {
+  const baixarEmLote = (maquinaIds: string[], motivo: MotivoBaixa, observacao: string) => {
     const timestamp = new Date().toISOString();
     const novosEventos: EventoMaquina[] = [];
 
@@ -180,18 +182,18 @@ const App: React.FC = () => {
             novosEventos.push({
                 id: crypto.randomUUID(),
                 maquina_id: m.id,
-                tipo_evento: 'VENDA',
+                tipo_evento: 'BAIXA',
                 criado_em: timestamp,
                 criado_por: currentUser?.nome || 'Sistema',
-                payload: { before: { status: m.status_estoque }, after: { status: 'VENDIDA', motivo, observacao } }
+                payload: { before: { status: m.status_estoque }, after: { status: 'BAIXADA', motivo, observacao } }
             });
             return { 
                 ...m, 
-                status_estoque: 'VENDIDA', 
-                motivo_venda: motivo, 
-                observacao_venda: observacao,
-                vendido_em: timestamp,
-                vendido_por: currentUser?.nome || 'Sistema'
+                status_estoque: 'BAIXADA', 
+                motivo_baixa: motivo, 
+                observacao_baixa: observacao,
+                baixado_em: timestamp,
+                baixado_por: currentUser?.nome || 'Sistema'
             };
         }
         return m;
@@ -199,7 +201,7 @@ const App: React.FC = () => {
     setEventos(prev => [...novosEventos, ...prev]);
   };
 
-  const desfazerVenda = (maquinaId: string, justificativa: string) => {
+  const desfazerBaixa = (maquinaId: string, justificativa: string) => {
     const timestamp = new Date().toISOString();
     
     setMaquinas(prev => {
@@ -212,11 +214,11 @@ const App: React.FC = () => {
         const novoEvento: EventoMaquina = {
             id: crypto.randomUUID(),
             maquina_id: maquinaId,
-            tipo_evento: 'DESFAZER_VENDA',
+            tipo_evento: 'DESFAZER_BAIXA',
             criado_em: timestamp,
             criado_por: currentUser?.nome || 'Sistema',
             justificativa,
-            payload: { before: { status: 'VENDIDA' }, after: { status: novoStatus } }
+            payload: { before: { status: 'BAIXADA' }, after: { status: novoStatus } }
         };
 
         setEventos(evs => [novoEvento, ...evs]);
@@ -226,10 +228,10 @@ const App: React.FC = () => {
                 return { 
                     ...m, 
                     status_estoque: novoStatus, 
-                    motivo_venda: undefined, 
-                    observacao_venda: undefined,
-                    vendido_em: undefined,
-                    vendido_por: undefined
+                    motivo_baixa: undefined, 
+                    observacao_baixa: undefined,
+                    baixado_em: undefined,
+                    baixado_por: undefined
                 };
             }
             return m;
@@ -249,7 +251,7 @@ const App: React.FC = () => {
 
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes,
-    executarImportacao, atribuirEmLote, atualizarMaquina, venderEmLote, desfazerVenda, registrarDevolucao, logout: handleLogout,
+    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, registrarDevolucao, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes]);
 
   return (

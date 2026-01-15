@@ -26,6 +26,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       onLogin({ perfil: 'Administrador', nome: 'Administrador Xisto' });
       return;
     } 
+    
+    // Novos acessos Gerência e Coordenação (Acesso Total)
+    if (user === 'gerentexisto' && pass === '852963@') {
+        onLogin({ perfil: 'Administrador', nome: 'Gerente Xisto' });
+        return;
+    }
+    if (user === 'coordenadorxisto' && pass === '741963@') {
+        onLogin({ perfil: 'Administrador', nome: 'Coordenador Xisto' });
+        return;
+    }
+
     if (user === 'estoquexisto' && pass === '316497@') {
       onLogin({ perfil: 'Estoquista', nome: 'Logística Xisto' });
       return;

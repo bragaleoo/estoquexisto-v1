@@ -27,8 +27,8 @@ const Dashboard: React.FC = () => {
     let central = 0;
 
     maquinas.forEach(m => {
-        // Ignora vendidas, pois queremos saber o disponível (Atribuído ou em Estoque Central)
-        if (m.status_estoque === 'VENDIDA') return;
+        // Ignora baixadas, pois queremos saber o disponível (Atribuído ou em Estoque Central)
+        if (m.status_estoque === 'BAIXADA') return;
 
         if (m.supervisor_id) {
             const supervisor = SUPERVISORES.find(s => s.id === m.supervisor_id);

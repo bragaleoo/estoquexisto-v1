@@ -1,6 +1,7 @@
 
 import React, { useState, useContext } from 'react';
 import { AppContext } from '../App';
+import { Regiao } from '../types';
 
 interface ProcessedRow {
     linha: number;
@@ -16,7 +17,8 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     const [formData, setFormData] = useState({ 
         codigoPedido: '', 
         qtdEsperada: '',
-        dataPedido: new Date().toISOString().split('T')[0] // Data atual como padrão
+        dataPedido: new Date().toISOString().split('T')[0], // Data atual como padrão
+        regiao: '' as Regiao | ''
     });
     const [fileData, setFileData] = useState<{ name: string, rows: ProcessedRow[] } | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -138,7 +140,8 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             formData.qtdEsperada ? parseInt(formData.qtdEsperada) : undefined,
             fileData.name,
             fileData.rows,
-            formData.dataPedido // Passa a data selecionada
+            formData.dataPedido, // Passa a data selecionada
+            formData.regiao === '' ? undefined : formData.regiao // Passa a região
         );
         setStep(4);
     };
@@ -182,7 +185,19 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                             onChange={e => setFormData({...formData, dataPedido: e.target.value})}
                             style={{ colorScheme: 'light' }}
                         />
-                        <p className="text-[10px] text-gray-500 font-bold mt-1 uppercase tracking-wider">Se não preenchido, será considerada a data de hoje.</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-black text-gray-900">Região de Atribuição *</label>
+                        <select 
+                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white focus:border-blue-600 outline-none font-bold text-gray-900" 
+                            value={formData.regiao}
+                            onChange={e => setFormData({...formData, regiao: e.target.value as Regiao})}
+                        >
+                            <option value="">SELECIONE A REGIÃO</option>
+                            <option value="SERGIPE">SERGIPE (AJU/SE)</option>
+                            <option value="ALAGOAS">ALAGOAS (MAC)</option>
+                        </select>
+                        <p className="text-[10px] text-gray-500 font-bold mt-1 uppercase tracking-wider">Define a qual estado este lote pertence.</p>
                     </div>
                     <div>
                         <label className="block text-sm font-black text-gray-900">Quantidade Esperada (opcional)</label>
@@ -195,7 +210,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                         />
                     </div>
                     <button 
-                        disabled={!formData.codigoPedido}
+                        disabled={!formData.codigoPedido || !formData.regiao}
                         onClick={() => setStep(2)}
                         className="w-full bg-blue-600 text-white py-4 rounded-xl font-black disabled:opacity-50 hover:bg-blue-700 transition shadow-lg"
                     >

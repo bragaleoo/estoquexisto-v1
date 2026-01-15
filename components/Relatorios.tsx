@@ -15,6 +15,9 @@ const Relatorios: React.FC = () => {
         status: '',
         supervisor: '',
         consultor: '',
+        dataImportacao: '',
+        dataAtribuicao: '',
+        regiao: '' // Novo filtro
     });
 
     // Paginação
@@ -42,7 +45,26 @@ const Relatorios: React.FC = () => {
             const matchStatus = filters.status ? m.status_estoque === filters.status : true;
             const matchSupervisor = filters.supervisor ? m.supervisor_id === parseInt(filters.supervisor) : true;
             const matchConsultor = filters.consultor ? m.consultor_nome?.toLowerCase().includes(filters.consultor.toLowerCase()) : true;
-            return matchPedido && matchStatus && matchSupervisor && matchConsultor;
+            const matchDataImportacao = filters.dataImportacao ? m.criado_em.startsWith(filters.dataImportacao) : true;
+            const matchDataAtribuicao = filters.dataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filters.dataAtribuicao)) : true;
+            
+            // Filtro de Região
+            let matchRegiao = true;
+            if (filters.regiao) {
+                const sup = SUPERVISORES.find(s => s.id === m.supervisor_id);
+                if (!sup) {
+                    matchRegiao = false; // Se não tem supervisor, não pertence a região de venda direta neste contexto
+                } else {
+                    const nome = sup.nome.toUpperCase();
+                    if (filters.regiao === 'SERGIPE') {
+                        matchRegiao = nome.startsWith('AJU') || nome.startsWith('SE');
+                    } else if (filters.regiao === 'ALAGOAS') {
+                        matchRegiao = nome.startsWith('MAC');
+                    }
+                }
+            }
+
+            return matchPedido && matchStatus && matchSupervisor && matchConsultor && matchDataImportacao && matchDataAtribuicao && matchRegiao;
         });
     }, [maquinas, filters, currentUser]);
 
@@ -55,8 +77,8 @@ const Relatorios: React.FC = () => {
         const total = maquinasFiltradas.length;
         const disp = maquinasFiltradas.filter(m => m.status_estoque === 'DISPONIVEL').length;
         const atrib = maquinasFiltradas.filter(m => m.status_estoque === 'ATRIBUIDA').length;
-        const vend = maquinasFiltradas.filter(m => m.status_estoque === 'VENDIDA').length;
-        return { total, disp, atrib, vend };
+        const baix = maquinasFiltradas.filter(m => m.status_estoque === 'BAIXADA').length;
+        return { total, disp, atrib, baix };
     }, [maquinasFiltradas]);
 
     return (
@@ -72,7 +94,8 @@ const Relatorios: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {/* Ajuste de grid para 4 colunas em telas grandes para acomodar o novo filtro */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Lote de Pedido</label>
                         <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.pedido} onChange={e => setFilters({...filters, pedido: e.target.value})}>
@@ -86,7 +109,19 @@ const Relatorios: React.FC = () => {
                             <option value="">TODOS OS STATUS</option>
                             <option value="DISPONIVEL">DISPONÍVEL</option>
                             <option value="ATRIBUIDA">ATRIBUÍDA</option>
-                            <option value="VENDIDA">VENDIDA</option>
+                            <option value="BAIXADA">BAIXADA</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região</label>
+                        <select 
+                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
+                            value={filters.regiao}
+                            onChange={e => setFilters({...filters, regiao: e.target.value})}
+                        >
+                            <option value="">TODAS AS REGIÕES</option>
+                            <option value="SERGIPE">SERGIPE (AJU/SE)</option>
+                            <option value="ALAGOAS">ALAGOAS (MAC)</option>
                         </select>
                     </div>
                     <div>
@@ -111,6 +146,26 @@ const Relatorios: React.FC = () => {
                             onChange={e => setFilters({...filters, consultor: e.target.value})}
                         />
                     </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Importação</label>
+                        <input 
+                            type="date" 
+                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase"
+                            value={filters.dataImportacao}
+                            onChange={e => setFilters({...filters, dataImportacao: e.target.value})}
+                            style={{ colorScheme: 'light' }}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Atribuição</label>
+                        <input 
+                            type="date" 
+                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase"
+                            value={filters.dataAtribuicao}
+                            onChange={e => setFilters({...filters, dataAtribuicao: e.target.value})}
+                            style={{ colorScheme: 'light' }}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -118,7 +173,7 @@ const Relatorios: React.FC = () => {
                 <Card title="Total Filtrado" value={stats.total} icon={<CreditCardIcon className="w-6 h-6 text-white" />} color="bg-slate-900" />
                 <Card title="Disponíveis" value={stats.disp} icon={<CheckCircleIcon className="w-6 h-6 text-white" />} color="bg-emerald-700" />
                 <Card title="Atribuídas" value={stats.atrib} icon={<ListIcon className="w-6 h-6 text-white" />} color="bg-indigo-800" />
-                <Card title="Vendidas" value={stats.vend} icon={<ExitIcon className="w-6 h-6 text-white" />} color="bg-red-700" />
+                <Card title="Baixadas" value={stats.baix} icon={<ExitIcon className="w-6 h-6 text-white" />} color="bg-red-700" />
             </div>
 
             <div className="bg-white rounded-[2.5rem] shadow-sm border-2 border-slate-200 overflow-hidden">
@@ -163,10 +218,10 @@ const Relatorios: React.FC = () => {
                                                 <span className="text-indigo-600">Atribuído:</span>
                                                 <span className="text-slate-950">{m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'}</span>
                                             </div>
-                                            {m.status_estoque === 'VENDIDA' && (
+                                            {m.status_estoque === 'BAIXADA' && (
                                                 <div className="flex justify-between">
-                                                    <span className="text-red-600">Vendido:</span>
-                                                    <span className="text-slate-950">{m.vendido_em ? new Date(m.vendido_em).toLocaleDateString() : '-'}</span>
+                                                    <span className="text-red-600">Baixado:</span>
+                                                    <span className="text-slate-950">{m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'}</span>
                                                 </div>
                                             )}
                                         </div>

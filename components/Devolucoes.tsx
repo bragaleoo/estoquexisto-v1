@@ -13,6 +13,7 @@ const Devolucoes: React.FC = () => {
     const [filterSupervisor, setFilterSupervisor] = useState('');
     const [filterConsultor, setFilterConsultor] = useState('');
     const [filterData, setFilterData] = useState('');
+    const [filterRegiao, setFilterRegiao] = useState(''); // Novo filtro
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 50;
@@ -37,7 +38,7 @@ const Devolucoes: React.FC = () => {
         }
     }, [currentUser, isSupervisor]);
 
-    useEffect(() => { setCurrentPage(1); }, [filterSerial, filterSupervisor, filterConsultor, filterData]);
+    useEffect(() => { setCurrentPage(1); }, [filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao]);
 
     const filteredItems = useMemo(() => {
         let list = devolucoes;
@@ -51,9 +52,26 @@ const Devolucoes: React.FC = () => {
             const matchSupervisor = filterSupervisor ? d.supervisor_id === parseInt(filterSupervisor) : true;
             const matchConsultor = filterConsultor ? d.consultor_nome.toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
             const matchData = filterData ? d.data_envio === filterData : true;
-            return matchSerial && matchSupervisor && matchConsultor && matchData;
+
+             // Filtro de Região
+             let matchRegiao = true;
+             if (filterRegiao) {
+                 const sup = SUPERVISORES.find(s => s.id === d.supervisor_id);
+                 if (!sup) {
+                     matchRegiao = false;
+                 } else {
+                     const nome = sup.nome.toUpperCase();
+                     if (filterRegiao === 'SERGIPE') {
+                         matchRegiao = nome.startsWith('AJU') || nome.startsWith('SE');
+                     } else if (filterRegiao === 'ALAGOAS') {
+                         matchRegiao = nome.startsWith('MAC');
+                     }
+                 }
+             }
+
+            return matchSerial && matchSupervisor && matchConsultor && matchData && matchRegiao;
         });
-    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData]);
+    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao]);
 
     const paginatedItems = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -96,7 +114,7 @@ const Devolucoes: React.FC = () => {
 
             <div className="bg-white rounded-3xl shadow-sm border-2 border-slate-200 overflow-hidden">
                 {/* Filtros */}
-                <div className="p-6 bg-slate-50 border-b-2 border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-6 bg-slate-50 border-b-2 border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div>
                         <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label>
                         <input 
@@ -106,6 +124,18 @@ const Devolucoes: React.FC = () => {
                             value={filterSerial}
                             onChange={e => setFilterSerial(e.target.value)}
                         />
+                    </div>
+                     <div>
+                        <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label>
+                        <select 
+                            className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600"
+                            value={filterRegiao}
+                            onChange={e => setFilterRegiao(e.target.value)}
+                        >
+                            <option value="">TODAS</option>
+                            <option value="SERGIPE">SERGIPE (AJU/SE)</option>
+                            <option value="ALAGOAS">ALAGOAS (MAC)</option>
+                        </select>
                     </div>
                     <div>
                         <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label>

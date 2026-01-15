@@ -5,7 +5,7 @@ import Modal from './ui/Modal';
 import ImportWizard from './ImportWizard';
 import { FileTextIcon, EditIcon } from './ui/Icons';
 import { SUPERVISORES } from '../constants';
-import { MotivoVenda, Maquina } from '../types';
+import { MotivoBaixa, Maquina, Regiao } from '../types';
 
 const Cadastros: React.FC = () => {
     const context = useContext(AppContext);
@@ -14,21 +14,24 @@ const Cadastros: React.FC = () => {
     // Filtros Unificados
     const [filterPedido, setFilterPedido] = useState('');
     const [filterSerial, setFilterSerial] = useState('');
-    const [filterData, setFilterData] = useState('');
+    const [filterDataImportacao, setFilterDataImportacao] = useState('');
+    const [filterDataAtribuicao, setFilterDataAtribuicao] = useState('');
+    const [filterDataBaixa, setFilterDataBaixa] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterOp, setFilterOp] = useState('');
     const [filterConsultor, setFilterConsultor] = useState('');
+    const [filterRegiao, setFilterRegiao] = useState(''); // Novo filtro
 
-    const [showVendidas, setShowVendidas] = useState(false);
+    const [showBaixadas, setShowBaixadas] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 50;
 
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [batchAction, setBatchAction] = useState<'atribuir' | 'vender' | null>(null);
+    const [batchAction, setBatchAction] = useState<'atribuir' | 'baixar' | null>(null);
     const [batchData, setBatchData] = useState({ 
         supervisor: '', 
         consultor: '', 
-        motivo: 'VENDA' as MotivoVenda, 
+        motivo: 'VENDA' as MotivoBaixa, 
         obs: ''
     });
 
@@ -37,14 +40,22 @@ const Cadastros: React.FC = () => {
     const [editData, setEditData] = useState({ supervisor: '', consultor: '' });
 
     if (!context) return null;
-    const { pedidos, maquinas, atribuirEmLote, venderEmLote, atualizarMaquina, currentUser } = context;
+    const { pedidos, maquinas, atribuirEmLote, baixarEmLote, atualizarMaquina, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
 
     // Reseta página ao mudar filtros
-    useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterData, filterOp, filterConsultor, showVendidas, filterStatus]);
+    useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
     
     // Reseta filtro de status ao mudar aba
-    useEffect(() => { setFilterStatus(''); }, [showVendidas]);
+    useEffect(() => { setFilterStatus(''); }, [showBaixadas]);
+
+    // Função auxiliar para determinar a região do supervisor
+    const getSupervisorRegion = (supervisorName: string): Regiao | null => {
+        const name = supervisorName.toUpperCase();
+        if (name.startsWith('AJU') || name.startsWith('SE')) return 'SERGIPE';
+        if (name.startsWith('MAC')) return 'ALAGOAS';
+        return null;
+    };
 
     // Lógica de Filtragem Geral
     const filteredInventory = useMemo(() => {
@@ -55,8 +66,8 @@ const Cadastros: React.FC = () => {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
         }
 
-        // 2. Filtro de Status (Abas Ativas/Vendidas)
-        list = list.filter(m => (showVendidas ? m.status_estoque === 'VENDIDA' : m.status_estoque !== 'VENDIDA'));
+        // 2. Filtro de Status (Abas Ativas/Baixadas)
+        list = list.filter(m => (showBaixadas ? m.status_estoque === 'BAIXADA' : m.status_estoque !== 'BAIXADA'));
 
         // 3. Filtros de Input do Usuário
         return list.filter(m => {
@@ -65,14 +76,35 @@ const Cadastros: React.FC = () => {
             const matchPedido = filterPedido ? pedidoRelacionado?.codigo_pedido.toUpperCase().includes(filterPedido.trim().toUpperCase()) : true;
 
             const matchSerial = filterSerial ? m.serial.includes(filterSerial.trim().toUpperCase()) : true;
-            const matchData = filterData ? m.criado_em.startsWith(filterData) : true;
+            
+            // Filtros de Datas
+            const matchDataImp = filterDataImportacao ? m.criado_em.startsWith(filterDataImportacao) : true;
+            const matchDataAtrib = filterDataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filterDataAtribuicao)) : true;
+            const matchDataBaixa = filterDataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filterDataBaixa)) : true;
+
             const matchStatus = filterStatus ? m.status_estoque === filterStatus : true;
             const matchOp = filterOp ? m.supervisor_id === parseInt(filterOp) : true;
             const matchConsultor = filterConsultor ? m.consultor_nome?.toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
 
-            return matchPedido && matchSerial && matchData && matchStatus && matchOp && matchConsultor;
+            // Filtro de Região
+            let matchRegiao = true;
+            if (filterRegiao) {
+                const sup = SUPERVISORES.find(s => s.id === m.supervisor_id);
+                if (!sup) {
+                     matchRegiao = false;
+                } else {
+                    const nome = sup.nome.toUpperCase();
+                    if (filterRegiao === 'SERGIPE') {
+                        matchRegiao = nome.startsWith('AJU') || nome.startsWith('SE');
+                    } else if (filterRegiao === 'ALAGOAS') {
+                        matchRegiao = nome.startsWith('MAC');
+                    }
+                }
+            }
+
+            return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
         });
-    }, [maquinas, pedidos, isSupervisor, currentUser, showVendidas, filterPedido, filterSerial, filterData, filterStatus, filterOp, filterConsultor]);
+    }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao]);
 
     // Paginação
     const paginatedInventory = useMemo(() => {
@@ -87,13 +119,38 @@ const Cadastros: React.FC = () => {
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
+    const checkRegionConflict = (ids: string[], supervisorId: number) => {
+        const supervisor = SUPERVISORES.find(s => s.id === supervisorId);
+        if (!supervisor) return false;
+
+        const supRegion = getSupervisorRegion(supervisor.nome);
+        if (!supRegion) return false; // Supervisor sem região definida (pode ser genérico)
+
+        const conflictingMachines = maquinas.filter(m => ids.includes(m.id)).filter(m => {
+            const pedido = pedidos.find(p => p.id === m.pedido_id);
+            // Se o pedido tem região e é diferente da região do supervisor, é conflito
+            return pedido?.regiao && pedido.regiao !== supRegion;
+        });
+
+        if (conflictingMachines.length > 0) {
+            const pedidoExemplo = pedidos.find(p => p.id === conflictingMachines[0].pedido_id);
+            const msg = `ATENÇÃO: Você está tentando atribuir máquinas de um lote de ${pedidoExemplo?.regiao} para um supervisor de ${supRegion}.\n\nIsso pode ser um erro operacional. Deseja continuar mesmo assim?`;
+            return !window.confirm(msg); // Retorna true se o usuário CANCELAR (não quiser continuar)
+        }
+        return false;
+    };
+
     const handleConfirmAction = () => {
         if (batchAction === 'atribuir') {
-            // Agora permite atribuir apenas a operação, sem consultor obrigatório
             if (!batchData.supervisor) return alert("Selecione a operação.");
+            
+            // Validação de Conflito de Região
+            const cancel = checkRegionConflict(selectedIds, parseInt(batchData.supervisor));
+            if (cancel) return;
+
             atribuirEmLote(selectedIds, parseInt(batchData.supervisor), batchData.consultor);
-        } else if (batchAction === 'vender') {
-            venderEmLote(selectedIds, batchData.motivo, batchData.obs);
+        } else if (batchAction === 'baixar') {
+            baixarEmLote(selectedIds, batchData.motivo, batchData.obs);
         }
         setSelectedIds([]);
         setBatchAction(null);
@@ -110,6 +167,10 @@ const Cadastros: React.FC = () => {
 
     const handleSaveEdit = () => {
         if (editingMachine && editData.supervisor) {
+            // Validação de Conflito de Região
+            const cancel = checkRegionConflict([editingMachine.id], parseInt(editData.supervisor));
+            if (cancel) return;
+
             atualizarMaquina(editingMachine.id, parseInt(editData.supervisor), editData.consultor);
             setEditingMachine(null);
         } else {
@@ -134,9 +195,9 @@ const Cadastros: React.FC = () => {
                                 <button onClick={() => setBatchAction('atribuir')} className="bg-indigo-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-indigo-900 transition animate-fadeIn">
                                     Distribuir ({selectedIds.length})
                                 </button>
-                                {!showVendidas && (
-                                    <button onClick={() => setBatchAction('vender')} className="bg-red-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-red-900 transition animate-fadeIn">
-                                        Vender ({selectedIds.length})
+                                {!showBaixadas && (
+                                    <button onClick={() => setBatchAction('baixar')} className="bg-red-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-red-900 transition animate-fadeIn">
+                                        Baixar ({selectedIds.length})
                                     </button>
                                 )}
                             </>
@@ -158,13 +219,13 @@ const Cadastros: React.FC = () => {
                             <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px]">{filteredInventory.length} encontrados</span>
                         </h2>
                         <div className="flex gap-2">
-                            <button onClick={() => setShowVendidas(false)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition ${!showVendidas ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-600'}`}>Ativas</button>
-                            <button onClick={() => setShowVendidas(true)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition ${showVendidas ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-600'}`}>Vendidas</button>
+                            <button onClick={() => setShowBaixadas(false)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition ${!showBaixadas ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-600'}`}>Ativas</button>
+                            <button onClick={() => setShowBaixadas(true)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition ${showBaixadas ? 'bg-red-700 text-white' : 'bg-slate-200 text-slate-600'}`}>Baixadas</button>
                         </div>
                     </div>
 
-                    <div className={`grid grid-cols-1 gap-4 ${!showVendidas ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
-                        <div>
+                    <div className={`grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-8`}>
+                        <div className="md:col-span-1">
                             <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Lote / Pedido</label>
                             <input 
                                 type="text" 
@@ -174,17 +235,7 @@ const Cadastros: React.FC = () => {
                                 onChange={(e) => setFilterPedido(e.target.value)}
                             />
                         </div>
-                        <div>
-                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Data Importação</label>
-                            <input 
-                                type="date" 
-                                className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600"
-                                value={filterData}
-                                onChange={(e) => setFilterData(e.target.value)}
-                                style={{ colorScheme: 'light' }}
-                            />
-                        </div>
-                        <div>
+                        <div className="md:col-span-1">
                             <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label>
                             <input 
                                 type="text" 
@@ -194,8 +245,42 @@ const Cadastros: React.FC = () => {
                                 onChange={(e) => setFilterSerial(e.target.value)}
                             />
                         </div>
-                        {!showVendidas && (
-                            <div>
+                         {/* Filtros de Data */}
+                         <div className="md:col-span-1">
+                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Data Importação</label>
+                            <input 
+                                type="date" 
+                                className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600"
+                                value={filterDataImportacao}
+                                onChange={(e) => setFilterDataImportacao(e.target.value)}
+                                style={{ colorScheme: 'light' }}
+                            />
+                        </div>
+                        <div className="md:col-span-1">
+                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Data Atribuição</label>
+                            <input 
+                                type="date" 
+                                className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600"
+                                value={filterDataAtribuicao}
+                                onChange={(e) => setFilterDataAtribuicao(e.target.value)}
+                                style={{ colorScheme: 'light' }}
+                            />
+                        </div>
+                         {showBaixadas && (
+                             <div className="md:col-span-1">
+                                <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Data Baixa</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600"
+                                    value={filterDataBaixa}
+                                    onChange={(e) => setFilterDataBaixa(e.target.value)}
+                                    style={{ colorScheme: 'light' }}
+                                />
+                            </div>
+                        )}
+
+                        {!showBaixadas && (
+                            <div className="md:col-span-1">
                                 <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Status</label>
                                 <select 
                                     className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600"
@@ -208,7 +293,19 @@ const Cadastros: React.FC = () => {
                                 </select>
                             </div>
                         )}
-                        <div>
+                         <div className="md:col-span-1">
+                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label>
+                            <select 
+                                className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600"
+                                value={filterRegiao}
+                                onChange={(e) => setFilterRegiao(e.target.value)}
+                            >
+                                <option value="">TODAS</option>
+                                <option value="SERGIPE">SERGIPE (AJU/SE)</option>
+                                <option value="ALAGOAS">ALAGOAS (MAC)</option>
+                            </select>
+                        </div>
+                        <div className="md:col-span-1">
                             <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label>
                             <select 
                                 className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600"
@@ -219,7 +316,7 @@ const Cadastros: React.FC = () => {
                                 {SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                             </select>
                         </div>
-                        <div>
+                        <div className="md:col-span-1">
                             <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Consultor</label>
                             <input 
                                 type="text" 
@@ -241,11 +338,13 @@ const Cadastros: React.FC = () => {
                                     if(e.target.checked) setSelectedIds(paginatedInventory.map(m => m.id));
                                     else setSelectedIds([]);
                                 }} checked={paginatedInventory.length > 0 && selectedIds.length >= paginatedInventory.length} /></th>}
-                                <th className="p-5">Lote / Data</th>
+                                <th className="p-5">Lote / Importação</th>
                                 <th className="p-5">Número de Serial</th>
                                 <th className="p-5">Status</th>
+                                <th className="p-5">Atribuído em</th>
+                                {showBaixadas && <th className="p-5">Baixado em</th>}
                                 <th className="p-5">Responsável / Operação</th>
-                                {!showVendidas && <th className="p-5 w-10"></th>}
+                                {!showBaixadas && <th className="p-5 w-10"></th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
@@ -257,6 +356,11 @@ const Cadastros: React.FC = () => {
                                         <td className="p-5">
                                             <p className="font-black text-blue-800 text-xs uppercase">{pedido?.codigo_pedido || 'N/A'}</p>
                                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-tight mt-1">{new Date(m.criado_em).toLocaleDateString()}</p>
+                                            {pedido?.regiao && (
+                                                <span className={`mt-1 inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase ${pedido.regiao === 'SERGIPE' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                                    {pedido.regiao}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="p-5 font-mono font-black text-slate-900 text-base group-hover:text-blue-800 transition-colors">{m.serial}</td>
                                         <td className="p-5">
@@ -264,11 +368,21 @@ const Cadastros: React.FC = () => {
                                                 {m.status_estoque}
                                             </span>
                                         </td>
+                                        {/* Nova Coluna: Atribuído Em */}
+                                        <td className="p-5 text-xs font-black text-slate-700 uppercase">
+                                            {m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'}
+                                        </td>
+                                        {/* Nova Coluna: Baixado Em */}
+                                        {showBaixadas && (
+                                            <td className="p-5 text-xs font-black text-slate-700 uppercase">
+                                                {m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'}
+                                            </td>
+                                        )}
                                         <td className="p-5">
                                             <p className="font-black text-slate-900 text-xs">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
                                             <p className="text-[9px] font-black text-slate-600 uppercase">{m.consultor_nome || 'N/A'}</p>
                                         </td>
-                                        {!showVendidas && (
+                                        {!showBaixadas && (
                                             <td className="p-5">
                                                 <button 
                                                     onClick={(e) => openEditModal(e, m)}
@@ -284,7 +398,7 @@ const Cadastros: React.FC = () => {
                             })}
                             {paginatedInventory.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="p-10 text-center font-black text-slate-400 uppercase text-xs tracking-widest italic">
+                                    <td colSpan={showBaixadas ? 7 : 7} className="p-10 text-center font-black text-slate-400 uppercase text-xs tracking-widest italic">
                                         Nenhuma máquina encontrada com os filtros atuais.
                                     </td>
                                 </tr>
@@ -326,8 +440,8 @@ const Cadastros: React.FC = () => {
                 <ImportWizard onSuccess={() => setImportModalOpen(false)} />
             </Modal>
 
-            {/* Modal de Atribuição em Lote */}
-            <Modal isOpen={!!batchAction} onClose={() => setBatchAction(null)} title={batchAction === 'atribuir' ? "Atribuição em Lote" : "Venda em Lote"}>
+            {/* Modal de Atribuição/Baixa em Lote */}
+            <Modal isOpen={!!batchAction} onClose={() => setBatchAction(null)} title={batchAction === 'atribuir' ? "Atribuição em Lote" : "Baixa em Lote"}>
                 <div className="space-y-4">
                     <p className="text-sm font-black text-slate-950 uppercase">{selectedIds.length} máquinas selecionadas.</p>
                     {batchAction === 'atribuir' ? (
@@ -341,9 +455,12 @@ const Cadastros: React.FC = () => {
                         </>
                     ) : (
                         <>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.motivo} onChange={e => setBatchData({...batchData, motivo: e.target.value as MotivoVenda})}>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.motivo} onChange={e => setBatchData({...batchData, motivo: e.target.value as MotivoBaixa})}>
                                 <option value="VENDA">VENDA</option>
                                 <option value="POS_VENDA">PÓS-VENDA</option>
+                                <option value="DEVOLUCAO">DEVOLUÇÃO</option>
+                                <option value="ERRO_OPERACIONAL">ERRO OPERACIONAL</option>
+                                <option value="OUTRO">OUTRO</option>
                             </select>
                             <textarea placeholder="OBSERVAÇÕES" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24" value={batchData.obs} onChange={e => setBatchData({...batchData, obs: e.target.value})} />
                         </>
