@@ -1,6 +1,6 @@
 
 import React, { useState, createContext, useMemo, useEffect } from 'react';
-import { Maquina, UserProfile, Pedido, Importacao, ImportacaoItem, EventoMaquina, MotivoVenda, StatusEstoque } from './types';
+import { Maquina, UserProfile, Pedido, Importacao, ImportacaoItem, EventoMaquina, MotivoVenda, StatusEstoque, Devolucao } from './types';
 import LoginScreen from './components/LoginScreen';
 import Layout from './components/Layout';
 
@@ -11,11 +11,13 @@ interface AppContextType {
   importacoes: Importacao[];
   importacaoItens: ImportacaoItem[];
   eventos: EventoMaquina[];
+  devolucoes: Devolucao[];
   executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string) => void;
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => void;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string) => void;
   venderEmLote: (maquinaIds: string[], motivo: MotivoVenda, observacao: string) => void;
   desfazerVenda: (maquinaId: string, justificativa: string) => void;
+  registrarDevolucao: (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => void;
   logout: () => void;
 }
 
@@ -29,6 +31,7 @@ const App: React.FC = () => {
   const [importacoes, setImportacoes] = useState<Importacao[]>(() => JSON.parse(localStorage.getItem('importacoes') || '[]'));
   const [importacaoItens, setImportacaoItens] = useState<ImportacaoItem[]>(() => JSON.parse(localStorage.getItem('importacao_itens') || '[]'));
   const [eventos, setEventos] = useState<EventoMaquina[]>(() => JSON.parse(localStorage.getItem('eventos_maquina') || '[]'));
+  const [devolucoes, setDevolucoes] = useState<Devolucao[]>(() => JSON.parse(localStorage.getItem('devolucoes') || '[]'));
 
   useEffect(() => {
     localStorage.setItem('pedidos', JSON.stringify(pedidos));
@@ -36,7 +39,8 @@ const App: React.FC = () => {
     localStorage.setItem('importacoes', JSON.stringify(importacoes));
     localStorage.setItem('importacao_itens', JSON.stringify(importacaoItens));
     localStorage.setItem('eventos_maquina', JSON.stringify(eventos));
-  }, [pedidos, maquinas, importacoes, importacaoItens, eventos]);
+    localStorage.setItem('devolucoes', JSON.stringify(devolucoes));
+  }, [pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes]);
 
   const handleLogin = (perfil: UserProfile) => setCurrentUser(perfil);
   const handleLogout = () => setCurrentUser(null);
@@ -233,10 +237,20 @@ const App: React.FC = () => {
     });
   };
 
+  const registrarDevolucao = (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => {
+      const novaDevolucao: Devolucao = {
+          id: crypto.randomUUID(),
+          criado_em: new Date().toISOString(),
+          criado_por: currentUser?.nome || 'Sistema',
+          ...dados
+      };
+      setDevolucoes(prev => [novaDevolucao, ...prev]);
+  };
+
   const contextValue = useMemo(() => ({
-    currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos,
-    executarImportacao, atribuirEmLote, atualizarMaquina, venderEmLote, desfazerVenda, logout: handleLogout,
-  }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos]);
+    currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes,
+    executarImportacao, atribuirEmLote, atualizarMaquina, venderEmLote, desfazerVenda, registrarDevolucao, logout: handleLogout,
+  }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes]);
 
   return (
     <AppContext.Provider value={contextValue}>

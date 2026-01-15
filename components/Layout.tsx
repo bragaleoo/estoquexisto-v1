@@ -3,10 +3,11 @@ import React, { useState, useContext } from 'react';
 import Dashboard from './Dashboard';
 import Cadastros from './Cadastros';
 import Relatorios from './Relatorios';
+import Devolucoes from './Devolucoes';
 import CalculadoraGanhos from './CalculadoraGanhos';
 import { Page, UserProfile } from '../types';
 import { AppContext } from '../App';
-import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon } from './ui/Icons';
+import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon } from './ui/Icons';
 
 const NavItem: React.FC<{
   icon: React.ReactNode;
@@ -50,6 +51,8 @@ const Layout: React.FC = () => {
         return <Cadastros />;
       case 'relatorios':
         return <Relatorios />;
+      case 'devolucoes':
+        return <Devolucoes />;
       case 'calculadora':
         return <CalculadoraGanhos />;
       default:
@@ -65,6 +68,8 @@ const Layout: React.FC = () => {
     { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    // Devoluções removido de Supervisor
+    { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'calculadora' as Page, label: 'Calculadora de Ganhos', icon: <HistoryIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Consultor'] },
   ];
 

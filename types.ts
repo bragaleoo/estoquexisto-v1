@@ -32,6 +32,17 @@ export interface Maquina {
   criado_em: string;
 }
 
+export interface Devolucao {
+    id: string;
+    serial: string;
+    supervisor_id: number;
+    consultor_nome: string;
+    data_envio: string;
+    observacao: string;
+    criado_em: string;
+    criado_por: string;
+}
+
 export interface EventoMaquina {
     id: string;
     maquina_id: string;
@@ -78,4 +89,4 @@ export interface Supervisor {
   nome: string;
 }
 
-export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'calculadora';
+export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'devolucoes' | 'calculadora';
