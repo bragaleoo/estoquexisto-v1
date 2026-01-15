@@ -29,7 +29,12 @@ const NavItem: React.FC<{
 
 const Layout: React.FC = () => {
   const context = useContext(AppContext);
-  const [page, setPage] = useState<Page>('dashboard');
+  
+  // Define a página inicial baseada no perfil: Consultores vão direto para calculadora
+  const [page, setPage] = useState<Page>(() => {
+    return context?.currentUser?.perfil === 'Consultor' ? 'calculadora' : 'dashboard';
+  });
+  
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   if (!context) return null;
@@ -46,12 +51,13 @@ const Layout: React.FC = () => {
       case 'calculadora':
         return <CalculadoraGanhos />;
       default:
-        return <Dashboard />;
+        return currentUser?.perfil === 'Consultor' ? <CalculadoraGanhos /> : <Dashboard />;
     }
   };
 
   const navItems = [
-    { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor', 'Consultor'] },
+    // Consultor removido do Dashboard
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
     { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'calculadora' as Page, label: 'Calculadora de Ganhos', icon: <HistoryIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Consultor'] },

@@ -7,8 +7,6 @@ type Senioridade = 'Junior' | 'Pleno' | 'Senior';
 
 const CalculadoraGanhos: React.FC = () => {
     const [config, setConfig] = useState({
-        mes: new Date().getMonth() + 1,
-        ano: new Date().getFullYear(),
         senioridade: 'Junior' as Senioridade,
     });
 
@@ -115,17 +113,8 @@ const CalculadoraGanhos: React.FC = () => {
                 </div>
             </div>
 
-            <div className="bg-white p-8 rounded-3xl shadow-sm border-2 border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border-2 border-slate-200">
                 <div className="space-y-3">
-                    <label className="block text-[10px] font-black text-slate-950 uppercase tracking-widest">Mês de Referência</label>
-                    <div className="flex gap-2">
-                        <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={config.mes} onChange={e => setConfig({...config, mes: parseInt(e.target.value)})}>
-                            {Array.from({length: 12}, (_, i) => <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('pt-BR', {month: 'long'}).toUpperCase()}</option>)}
-                        </select>
-                        <input type="number" className="w-28 p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={config.ano} onChange={e => setConfig({...config, ano: parseInt(e.target.value)})} />
-                    </div>
-                </div>
-                <div className="md:col-span-2 space-y-3">
                     <label className="block text-[10px] font-black text-slate-950 uppercase tracking-widest">Nível de Senioridade</label>
                     <div className="flex gap-3 p-2 bg-slate-100 rounded-2xl border-2 border-slate-200">
                         {(['Junior', 'Pleno', 'Senior'] as Senioridade[]).map(s => (
@@ -201,7 +190,6 @@ const CalculadoraGanhos: React.FC = () => {
                             <h3 className="text-8xl font-black tracking-tighter text-white">R$ {results.totalGeral}</h3>
                             <div className="mt-8 flex items-center gap-4">
                                 <span className="bg-blue-600/20 text-blue-400 px-4 py-2 rounded-full border border-blue-500/30 font-black text-[10px] uppercase tracking-widest">Nível: {config.senioridade}</span>
-                                <span className="bg-slate-800 text-slate-400 px-4 py-2 rounded-full font-black text-[10px] uppercase tracking-widest">{config.mes}/{config.ano}</span>
                             </div>
                         </div>
                         <HistoryIcon className="absolute -right-16 -bottom-16 w-80 h-80 opacity-5 rotate-12" />
