@@ -70,8 +70,6 @@ export interface Importacao {
   total_linhas_lidas: number;
   seriais_validos: number;
   invalidos: number;
-  duplicados_arquivo: number;
-  duplicados_sistema: number;
   maquinas_inseridas: number;
   status: 'PROCESSADA' | 'PROCESSADA_COM_ERROS';
 }

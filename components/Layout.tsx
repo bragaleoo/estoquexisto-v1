@@ -5,7 +5,7 @@ import Cadastros from './Cadastros';
 import Relatorios from './Relatorios';
 import Devolucoes from './Devolucoes';
 import CalculadoraGanhos from './CalculadoraGanhos';
-import { Page, UserProfile } from '../types';
+import { Page } from '../types';
 import { AppContext } from '../App';
 import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon } from './ui/Icons';
 
@@ -31,19 +31,27 @@ const NavItem: React.FC<{
 const Layout: React.FC = () => {
   const context = useContext(AppContext);
   
-  // Define a página inicial baseada no perfil
   const [page, setPage] = useState<Page>(() => {
     if (context?.currentUser?.perfil === 'Consultor') return 'calculadora';
-    if (context?.currentUser?.perfil === 'Supervisor') return 'cadastros'; // Supervisor vai direto para estoque
+    if (context?.currentUser?.perfil === 'Supervisor') return 'cadastros';
     return 'dashboard';
   });
   
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   if (!context) return null;
-  const { currentUser, logout } = context;
+  const { currentUser, logout, loading } = context;
 
   const renderPage = () => {
+    if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full space-y-4">
+           <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
+           <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-400">Sincronizando com a Nuvem...</p>
+        </div>
+      );
+    }
+
     switch (page) {
       case 'dashboard':
         return <Dashboard />;
@@ -56,19 +64,14 @@ const Layout: React.FC = () => {
       case 'calculadora':
         return <CalculadoraGanhos />;
       default:
-        // Fallback seguro
-        if (currentUser?.perfil === 'Consultor') return <CalculadoraGanhos />;
-        if (currentUser?.perfil === 'Supervisor') return <Cadastros />;
         return <Dashboard />;
     }
   };
 
   const navItems = [
-    // Dashboard apenas para Admin e Estoquista
     { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
-    // Devoluções removido de Supervisor
     { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'calculadora' as Page, label: 'Calculadora de Ganhos', icon: <HistoryIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Consultor'] },
   ];
