@@ -27,8 +27,15 @@ interface AppContextType {
 
 export const AppContext = createContext<AppContextType | null>(null);
 
+const SESSION_KEY = 'xisto_user_session';
+
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    // Tenta recuperar a sessão do localStorage na inicialização
+    const savedSession = localStorage.getItem(SESSION_KEY);
+    return savedSession ? JSON.parse(savedSession) : null;
+  });
+  
   const [loading, setLoading] = useState(true);
   
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -76,8 +83,15 @@ const App: React.FC = () => {
     fetchData();
   }, []);
 
-  const handleLogin = (perfil: UserProfile) => setCurrentUser(perfil);
-  const handleLogout = () => setCurrentUser(null);
+  const handleLogin = (perfil: UserProfile) => {
+    setCurrentUser(perfil);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(perfil));
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem(SESSION_KEY);
+  };
 
   const executarImportacao = async (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
     const importId = crypto.randomUUID();
