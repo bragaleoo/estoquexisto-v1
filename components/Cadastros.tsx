@@ -36,7 +36,6 @@ const Cadastros: React.FC = () => {
         dataBaixa: new Date().toISOString().split('T')[0] 
     });
 
-    // Estado para edição individual
     const [editingMachine, setEditingMachine] = useState<Maquina | null>(null);
     const [editData, setEditData] = useState({ 
         supervisor: '', 
@@ -58,13 +57,13 @@ const Cadastros: React.FC = () => {
     };
 
     const filteredInventory = useMemo(() => {
-        let list = maquinas;
+        let list = [...maquinas];
         if (isSupervisor) {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
         }
         list = list.filter(m => (showBaixadas ? m.status_estoque === 'BAIXADA' : m.status_estoque !== 'BAIXADA'));
 
-        return list.filter(m => {
+        const filtered = list.filter(m => {
             const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
             const matchPedido = filterPedido ? pedidoRelacionado?.codigo_pedido.toUpperCase().includes(filterPedido.trim().toUpperCase()) : true;
             const matchSerial = filterSerial ? m.serial.includes(filterSerial.trim().toUpperCase()) : true;
@@ -78,11 +77,19 @@ const Cadastros: React.FC = () => {
 
             return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
         });
+
+        // ORDENAÇÃO: ATRIBUIDAS PRIMEIRO, depois por CRIAÇÃO DESC
+        return filtered.sort((a, b) => {
+            if (a.status_estoque === 'ATRIBUIDA' && b.status_estoque !== 'ATRIBUIDA') return -1;
+            if (a.status_estoque !== 'ATRIBUIDA' && b.status_estoque === 'ATRIBUIDA') return 1;
+            
+            // Caso ambos tenham o mesmo status, ordena pelo mais novo
+            return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime();
+        });
     }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao]);
 
     const handleExportExcel = () => {
         if (filteredInventory.length === 0) return alert("Não há ativos para exportar.");
-
         const dataToExport = filteredInventory.map(m => {
             const pedido = pedidos.find(p => p.id === m.pedido_id);
             const supervisor = SUPERVISORES.find(s => s.id === m.supervisor_id);
@@ -97,7 +104,6 @@ const Cadastros: React.FC = () => {
                 'DATA_ATRIBUICAO': m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'
             };
         });
-
         const worksheet = (window as any).XLSX.utils.json_to_sheet(dataToExport);
         const workbook = (window as any).XLSX.utils.book_new();
         (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, "Estoque_Xisto");
@@ -121,30 +127,27 @@ const Cadastros: React.FC = () => {
         if (!supervisor) return false;
         const supRegion = getSupervisorRegion(supervisor.nome);
         if (!supRegion) return false;
-
         const conflictingMachines = maquinas.filter(m => ids.includes(m.id)).filter(m => {
             const pedido = pedidos.find(p => p.id === m.pedido_id);
             return pedido?.regiao && pedido.regiao !== supRegion;
         });
-
         if (conflictingMachines.length > 0) {
             const pedidoExemplo = pedidos.find(p => p.id === conflictingMachines[0].pedido_id);
-            const msg = `ATENÇÃO: Você está tentando atribuir máquinas de um lote de ${pedidoExemplo?.regiao} para um supervisor de ${supRegion}.\n\nDeseja continuar?`;
-            return !window.confirm(msg);
+            return !window.confirm(`ATENÇÃO: Lote de ${pedidoExemplo?.regiao} sendo atribuído a supervisor de ${supRegion}.\n\nDeseja continuar?`);
         }
         return false;
     };
 
-    const handleConfirmAction = () => {
+    const handleConfirmAction = async () => {
         if (batchAction === 'atribuir') {
             const supervisorId = parseInt(batchData.supervisor);
             if (!supervisorId) return alert("Selecione a operação.");
             if (checkRegionConflict(selectedIds, supervisorId)) return;
-            atribuirEmLote(selectedIds, supervisorId, batchData.consultor);
+            await atribuirEmLote(selectedIds, supervisorId, batchData.consultor);
         } else if (batchAction === 'baixar') {
-            baixarEmLote(selectedIds, batchData.motivo, batchData.obs, batchData.dataBaixa);
+            await baixarEmLote(selectedIds, batchData.motivo, batchData.obs, batchData.dataBaixa);
         } else if (batchAction === 'disponibilizar') {
-            disponibilizarEmLote(selectedIds);
+            await disponibilizarEmLote(selectedIds);
         }
         setSelectedIds([]);
         setBatchAction(null);
@@ -154,26 +157,21 @@ const Cadastros: React.FC = () => {
     const openEditModal = (e: React.MouseEvent, m: Maquina) => {
         e.stopPropagation();
         setEditingMachine(m);
-        setEditData({
-            supervisor: m.supervisor_id?.toString() || '',
-            consultor: m.consultor_nome || ''
-        });
+        setEditData({ supervisor: m.supervisor_id?.toString() || '', consultor: m.consultor_nome || '' });
     };
 
-    const handleSaveEdit = () => {
+    const handleSaveEdit = async () => {
         if (!editingMachine) return;
         const supervisorId = parseInt(editData.supervisor);
         if (!supervisorId) return alert("A operação é obrigatória.");
         if (checkRegionConflict([editingMachine.id], supervisorId)) return;
-        
-        atualizarMaquina(editingMachine.id, supervisorId, editData.consultor.toUpperCase());
-        
+        await atualizarMaquina(editingMachine.id, supervisorId, editData.consultor.toUpperCase());
         setEditingMachine(null);
     };
 
-    const handleMakeAvailable = () => {
-        if (editingMachine && window.confirm("Deseja realmente tornar este ativo DISPONÍVEL? A atribuição atual será removida.")) {
-            disponibilizarEmLote([editingMachine.id]);
+    const handleMakeAvailable = async () => {
+        if (editingMachine && window.confirm("Deseja realmente tornar este ativo DISPONÍVEL?")) {
+            await disponibilizarEmLote([editingMachine.id]);
             setEditingMachine(null);
         }
     };
@@ -200,9 +198,7 @@ const Cadastros: React.FC = () => {
                                 )}
                             </>
                         )}
-                        <button onClick={handleExportExcel} className="bg-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-emerald-800 transition flex items-center gap-2 font-black uppercase text-xs">
-                             Exportar Excel
-                        </button>
+                        <button onClick={handleExportExcel} className="bg-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-emerald-800 transition flex items-center gap-2 font-black uppercase text-xs">Exportar Excel</button>
                         <button onClick={() => setImportModalOpen(true)} className="bg-blue-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-blue-800 transition flex items-center gap-2 font-black uppercase text-xs">
                             <FileTextIcon className="w-5 h-5" /> Importar Lote
                         </button>
@@ -261,17 +257,13 @@ const Cadastros: React.FC = () => {
                             {paginatedInventory.map(m => {
                                 const pedido = pedidos.find(p => p.id === m.pedido_id);
                                 return (
-                                    <tr key={m.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => toggleSelect(m.id)}>
+                                    <tr key={m.id} className={`hover:bg-slate-50 transition-colors cursor-pointer group ${selectedIds.includes(m.id) ? 'bg-blue-50/50' : ''}`} onClick={() => toggleSelect(m.id)}>
                                         {!isSupervisor && <td className="p-5 text-center"><input type="checkbox" checked={selectedIds.includes(m.id)} readOnly className="w-5 h-5 accent-blue-700" /></td>}
                                         <td className="p-5">
                                             <p className="font-black text-blue-800 text-xs uppercase">{pedido?.codigo_pedido || 'N/A'}</p>
                                             <p className="text-[10px] font-black text-slate-500 uppercase mt-1">{new Date(m.criado_em).toLocaleDateString()}</p>
                                             {pedido?.regiao && (
-                                                <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[8px] font-black uppercase border ${
-                                                    pedido.regiao === 'SERGIPE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                }`}>
-                                                    {pedido.regiao}
-                                                </span>
+                                                <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[8px] font-black uppercase border ${pedido.regiao === 'SERGIPE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>{pedido.regiao}</span>
                                             )}
                                         </td>
                                         <td className="p-5 font-mono font-black text-slate-900 text-base">{m.serial}</td>
@@ -281,9 +273,7 @@ const Cadastros: React.FC = () => {
                                         <td className="p-5"><p className="font-black text-slate-900 text-xs">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p><p className="text-[9px] font-black text-slate-600 uppercase">{m.consultor_nome || 'N/A'}</p></td>
                                         {!showBaixadas && (
                                             <td className="p-5">
-                                                <div className="flex gap-2">
-                                                    <button onClick={e => openEditModal(e, m)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all" title="Editar Atribuição"><EditIcon className="w-4 h-4" /></button>
-                                                </div>
+                                                <button onClick={e => openEditModal(e, m)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"><EditIcon className="w-4 h-4" /></button>
                                             </td>
                                         )}
                                     </tr>
@@ -295,9 +285,7 @@ const Cadastros: React.FC = () => {
 
                 {totalPages > 1 && (
                      <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                            {paginatedInventory.length} de {filteredInventory.length} registros
-                        </span>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{paginatedInventory.length} de {filteredInventory.length} registros</span>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
                             <div className="px-4 py-2 bg-slate-200 rounded-xl font-black text-[10px]">{currentPage} / {totalPages}</div>
@@ -311,7 +299,7 @@ const Cadastros: React.FC = () => {
                 <ImportWizard onSuccess={() => setImportModalOpen(false)} />
             </Modal>
 
-            <Modal isOpen={!!batchAction} onClose={() => { setBatchAction(null); setBatchData({ supervisor: '', consultor: '', motivo: 'VENDA', obs: '', dataBaixa: new Date().toISOString().split('T')[0] }); }} title={batchAction === 'atribuir' ? "Atribuição em Lote" : batchAction === 'baixar' ? "Baixa em Lote" : "Disponibilizar em Lote"}>
+            <Modal isOpen={!!batchAction} onClose={() => setBatchAction(null)} title={batchAction === 'atribuir' ? "Atribuição em Lote" : batchAction === 'baixar' ? "Baixa em Lote" : "Disponibilizar em Lote"}>
                 <div className="space-y-4">
                     <p className="text-sm font-black text-slate-950 uppercase">{selectedIds.length} máquinas selecionadas.</p>
                     {batchAction === 'atribuir' ? (
@@ -331,7 +319,7 @@ const Cadastros: React.FC = () => {
                             <textarea placeholder="OBSERVAÇÕES" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24" value={batchData.obs} onChange={e => setBatchData({...batchData, obs: e.target.value})} />
                         </>
                     ) : (
-                        <p className="text-sm font-bold text-slate-600 uppercase">Deseja realmente tornar as {selectedIds.length} máquinas selecionadas DISPONÍVEIS no estoque central? Isso removerá qualquer atribuição atual.</p>
+                        <p className="text-sm font-bold text-slate-600 uppercase">Confirmar disponibilidade no estoque central?</p>
                     )}
                     <button onClick={handleConfirmAction} className="w-full bg-slate-950 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-black transition-all">Confirmar Operação</button>
                 </div>
@@ -343,44 +331,21 @@ const Cadastros: React.FC = () => {
                         <p className="text-[10px] font-black text-slate-500 uppercase">Ativo Serial</p>
                         <p className="text-lg font-black text-slate-900 font-mono">{editingMachine?.serial}</p>
                     </div>
-                    
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Status do Ativo</label>
-                        <div className="flex gap-2">
-                             <div className="flex-1 p-4 border-2 border-slate-100 rounded-xl bg-slate-50 text-slate-400 font-black text-xs uppercase cursor-not-allowed">
-                                {editingMachine?.status_estoque}
-                            </div>
-                            {editingMachine?.status_estoque === 'ATRIBUIDA' && !isSupervisor && (
-                                <button 
-                                    onClick={handleMakeAvailable}
-                                    className="p-4 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase hover:bg-black transition"
-                                    title="Tornar Disponível"
-                                >
-                                    <RefreshCwIcon className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação / Supervisor</label>
-                        <select 
-                            disabled={isSupervisor}
-                            className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 transition-all" 
-                            value={editData.supervisor} 
-                            onChange={e => setEditData({...editData, supervisor: e.target.value})}
-                        >
+                        <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={editData.supervisor} onChange={e => setEditData({...editData, supervisor: e.target.value})}>
                             <option value="">SELECIONE A OPERAÇÃO *</option>
                             {SUPERVISORES.map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                         </select>
                     </div>
-
                     <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor (Opcional)</label>
-                        <input type="text" placeholder="NOME DO CONSULTOR" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase outline-none focus:border-blue-700 transition-all" value={editData.consultor} onChange={e => setEditData({...editData, consultor: e.target.value})} />
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>
+                        <input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={editData.consultor} onChange={e => setEditData({...editData, consultor: e.target.value})} />
                     </div>
-
-                    <button onClick={handleSaveEdit} className="w-full bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl mt-4 hover:bg-blue-800 transition active:scale-95">Salvar Alterações</button>
+                    <div className="flex gap-2">
+                        <button onClick={handleSaveEdit} className="flex-1 bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl">Salvar</button>
+                        <button onClick={handleMakeAvailable} className="bg-slate-950 text-white px-6 rounded-xl font-black text-[10px] uppercase shadow-xl"><RefreshCwIcon className="w-4 h-4" /></button>
+                    </div>
                  </div>
             </Modal>
         </div>

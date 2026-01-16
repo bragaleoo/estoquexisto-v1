@@ -48,7 +48,6 @@ const App: React.FC = () => {
   const [eventos, setEventos] = useState<EventoMaquina[]>([]);
   const [devolucoes, setDevolucoes] = useState<Devolucao[]>([]);
 
-  // Carregamento Reativo
   useEffect(() => {
     const fetchData = async () => {
       if (refreshTrigger === 0) setLoading(true);
@@ -57,7 +56,7 @@ const App: React.FC = () => {
       try {
         const results = await Promise.allSettled([
           supabase.from('pedidos').select('*').order('criado_em', { ascending: false }),
-          supabase.from('maquinas').select('*').order('criado_em', { ascending: false }), // ORDENAÇÃO FIXA POR CRIAÇÃO
+          supabase.from('maquinas').select('*').order('criado_em', { ascending: false }),
           supabase.from('importacoes').select('*').order('importado_em', { ascending: false }),
           supabase.from('importacao_itens').select('*'),
           supabase.from('eventos_maquina').select('*').order('criado_em', { ascending: false }),
@@ -75,7 +74,6 @@ const App: React.FC = () => {
                 if (index === 5) setDevolucoes(data);
             }
         });
-
       } catch (err) {
         console.error("Erro ao sincronizar:", err);
       } finally {
@@ -113,74 +111,33 @@ const App: React.FC = () => {
 
     processados.forEach(item => {
       novosLogs.push({ id: crypto.randomUUID(), import_id: importId, linha_numero: item.linha, serial_original: item.original, serial_normalizado: item.normalizado, status_item: item.status, erro_motivo: item.motivo });
-
       if (item.status === 'INSERIDO') {
         const mId = crypto.randomUUID();
-        novasMaquinas.push({
-          id: mId,
-          serial: item.normalizado,
-          pedido_id: pedidoId,
-          import_id: importId,
-          status_estoque: 'DISPONIVEL',
-          criado_em: dataBase
-        });
-        novosEventos.push({
-            id: crypto.randomUUID(),
-            maquina_id: mId,
-            tipo_evento: 'IMPORTADA',
-            criado_em: new Date().toISOString(),
-            criado_por: currentUser?.nome || 'Sistema',
-            payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido } }
-        });
+        novasMaquinas.push({ id: mId, serial: item.normalizado, pedido_id: pedidoId, import_id: importId, status_estoque: 'DISPONIVEL', criado_em: dataBase });
+        novosEventos.push({ id: crypto.randomUUID(), maquina_id: mId, tipo_evento: 'IMPORTADA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido } } });
       }
     });
 
-    const inseridosCount = novasMaquinas.length;
-
     if (!pedidoExistente) {
-      await supabase.from('pedidos').insert({
-        id: pedidoId, codigo_pedido: codigoPedido, qtd_esperada: qtdEsperada,
-        qtd_importada: inseridosCount, status_importacao: (qtdEsperada && inseridosCount >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL',
-        regiao, criado_em: dataBase, criado_por: currentUser?.nome || 'Sistema'
-      });
+      await supabase.from('pedidos').insert({ id: pedidoId, codigo_pedido: codigoPedido, qtd_esperada: qtdEsperada, qtd_importada: novasMaquinas.length, status_importacao: (qtdEsperada && novasMaquinas.length >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL', regiao, criado_em: dataBase, criado_por: currentUser?.nome || 'Sistema' });
     } else {
-      await supabase.from('pedidos').update({
-        qtd_importada: pedidoExistente.qtd_importada + inseridosCount,
-        status_importacao: (qtdEsperada && (pedidoExistente.qtd_importada + inseridosCount) >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL',
-        regiao: regiao || pedidoExistente.regiao
-      }).eq('id', pedidoId);
+      await supabase.from('pedidos').update({ qtd_importada: pedidoExistente.qtd_importada + novasMaquinas.length, status_importacao: (qtdEsperada && (pedidoExistente.qtd_importada + novasMaquinas.length) >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL' }).eq('id', pedidoId);
     }
 
     await Promise.all([
-      supabase.from('importacoes').insert({
-        id: importId, pedido_id: pedidoId, arquivo_nome: arquivoNome, 
-        importado_em: new Date().toISOString(), importado_por: currentUser?.nome || 'Sistema',
-        total_linhas_lidas: processados.length, seriais_validos: processados.filter(i => i.status !== 'INVALIDO').length,
-        invalidos: processados.filter(i => i.status === 'INVALIDO').length,
-        maquinas_inseridas: inseridosCount, status: 'PROCESSADA'
-      }),
+      supabase.from('importacoes').insert({ id: importId, pedido_id: pedidoId, arquivo_nome: arquivoNome, importado_em: new Date().toISOString(), importado_por: currentUser?.nome || 'Sistema', total_linhas_lidas: processados.length, seriais_validos: processados.filter(i => i.status !== 'INVALIDO').length, invalidos: processados.filter(i => i.status === 'INVALIDO').length, maquinas_inseridas: novasMaquinas.length, status: 'PROCESSADA' }),
       supabase.from('maquinas').insert(novasMaquinas),
       supabase.from('importacao_itens').insert(novosLogs),
       supabase.from('eventos_maquina').insert(novosEventos)
     ]);
-
     triggerRefresh();
   };
 
   const atribuirEmLote = async (maquinaIds: string[], supervisorId: number, consultorNome: string) => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
-    
-    await supabase.from('maquinas')
-      .update({ status_estoque: 'ATRIBUIDA', supervisor_id: supervisorId, consultor_nome: consultorNome, atribuido_em: timestamp })
-      .in('id', maquinaIds);
-
-    const novosEventos = maquinaIds.map(id => ({
-      id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'ATRIBUICAO',
-      criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema',
-      payload: { after: { status: 'ATRIBUIDA', supervisor: supervisorId, consultor: consultorNome } }
-    }));
-
+    await supabase.from('maquinas').update({ status_estoque: 'ATRIBUIDA', supervisor_id: supervisorId, consultor_nome: consultorNome, atribuido_em: timestamp }).in('id', maquinaIds);
+    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'ATRIBUICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'ATRIBUIDA', supervisor: supervisorId, consultor: consultorNome } } }));
     await supabase.from('eventos_maquina').insert(novosEventos);
     triggerRefresh();
   };
@@ -189,37 +146,16 @@ const App: React.FC = () => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
     const novoStatus: StatusEstoque = supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL';
-
-    await supabase.from('maquinas')
-      .update({ supervisor_id: supervisorId, consultor_nome: consultorNome, status_estoque: novoStatus })
-      .eq('id', maquinaId);
-
-    await supabase.from('eventos_maquina').insert({
-      id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'EDICAO',
-      criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema',
-      payload: { after: { supervisor: supervisorId, consultor: consultorNome } }
-    });
+    await supabase.from('maquinas').update({ supervisor_id: supervisorId, consultor_nome: consultorNome, status_estoque: novoStatus }).eq('id', maquinaId);
+    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { supervisor: supervisorId, consultor: consultorNome } } });
     triggerRefresh();
   };
 
   const baixarEmLote = async (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => {
     setIsSyncing(true);
     const timestamp = dataBaixa ? new Date(dataBaixa + 'T12:00:00').toISOString() : new Date().toISOString();
-    
-    await supabase.from('maquinas')
-      .update({ 
-        status_estoque: 'BAIXADA', motivo_baixa: motivo, 
-        observacao_baixa: observacao, baixado_em: timestamp, 
-        baixado_por: currentUser?.nome || 'Sistema' 
-      })
-      .in('id', maquinaIds);
-
-    const novosEventos = maquinaIds.map(id => ({
-      id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'BAIXA',
-      criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema',
-      payload: { after: { status: 'BAIXADA', motivo, observacao } }
-    }));
-
+    await supabase.from('maquinas').update({ status_estoque: 'BAIXADA', motivo_baixa: motivo, observacao_baixa: observacao, baixado_em: timestamp, baixado_por: currentUser?.nome || 'Sistema' }).in('id', maquinaIds);
+    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'BAIXA', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'BAIXADA', motivo, observacao } } }));
     await supabase.from('eventos_maquina').insert(novosEventos);
     triggerRefresh();
   };
@@ -227,17 +163,8 @@ const App: React.FC = () => {
   const disponibilizarEmLote = async (maquinaIds: string[]) => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
-
-    await supabase.from('maquinas')
-      .update({ status_estoque: 'DISPONIVEL', supervisor_id: null, consultor_nome: null, atribuido_em: null })
-      .in('id', maquinaIds);
-
-    const novosEventos = maquinaIds.map(id => ({
-      id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'EDICAO',
-      criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema',
-      payload: { after: { status: 'DISPONIVEL' } }
-    }));
-
+    await supabase.from('maquinas').update({ status_estoque: 'DISPONIVEL', supervisor_id: null, consultor_nome: null, atribuido_em: null }).in('id', maquinaIds);
+    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'DISPONIVEL' } } }));
     await supabase.from('eventos_maquina').insert(novosEventos);
     triggerRefresh();
   };
@@ -247,30 +174,14 @@ const App: React.FC = () => {
     const machine = maquinas.find(m => m.id === maquinaId);
     if (!machine) return;
     const novoStatus: StatusEstoque = machine.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL';
-
-    await supabase.from('maquinas')
-      .update({ 
-        status_estoque: novoStatus, motivo_baixa: null, 
-        observacao_baixa: null, baixado_em: null, baixado_por: null 
-      })
-      .eq('id', maquinaId);
-
-    await supabase.from('eventos_maquina').insert({
-      id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'DESFAZER_BAIXA',
-      criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema',
-      justificativa, payload: { after: { status: novoStatus } }
-    });
+    await supabase.from('maquinas').update({ status_estoque: novoStatus, motivo_baixa: null, observacao_baixa: null, baixado_em: null, baixado_por: null }).eq('id', maquinaId);
+    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'DESFAZER_BAIXA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', justificativa, payload: { after: { status: novoStatus } } });
     triggerRefresh();
   };
 
   const registrarDevolucao = async (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => {
     setIsSyncing(true);
-    await supabase.from('devolucoes').insert({
-      id: crypto.randomUUID(),
-      criado_em: new Date().toISOString(),
-      criado_por: currentUser?.nome || 'Sistema',
-      ...dados
-    });
+    await supabase.from('devolucoes').insert({ id: crypto.randomUUID(), criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', ...dados });
     triggerRefresh();
   };
 
