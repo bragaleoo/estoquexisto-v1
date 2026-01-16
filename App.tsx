@@ -14,6 +14,7 @@ interface AppContextType {
   eventos: EventoMaquina[];
   devolucoes: Devolucao[];
   loading: boolean;
+  isSyncing: boolean;
   executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => Promise<void>;
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => Promise<void>;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string) => Promise<void>;
@@ -28,15 +29,17 @@ interface AppContextType {
 export const AppContext = createContext<AppContextType | null>(null);
 
 const SESSION_KEY = 'xisto_user_session';
+const LAST_PAGE_KEY = 'xisto_last_page';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    // Tenta recuperar a sessão do localStorage na inicialização
     const savedSession = localStorage.getItem(SESSION_KEY);
     return savedSession ? JSON.parse(savedSession) : null;
   });
   
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
@@ -45,14 +48,16 @@ const App: React.FC = () => {
   const [eventos, setEventos] = useState<EventoMaquina[]>([]);
   const [devolucoes, setDevolucoes] = useState<Devolucao[]>([]);
 
-  // Carregamento Inicial do Supabase
+  // Carregamento Reativo
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
+      if (refreshTrigger === 0) setLoading(true);
+      else setIsSyncing(true);
+
       try {
         const results = await Promise.allSettled([
           supabase.from('pedidos').select('*').order('criado_em', { ascending: false }),
-          supabase.from('maquinas').select('*'),
+          supabase.from('maquinas').select('*').order('criado_em', { ascending: false }), // ORDENAÇÃO FIXA POR CRIAÇÃO
           supabase.from('importacoes').select('*').order('importado_em', { ascending: false }),
           supabase.from('importacao_itens').select('*'),
           supabase.from('eventos_maquina').select('*').order('criado_em', { ascending: false }),
@@ -68,20 +73,21 @@ const App: React.FC = () => {
                 if (index === 3) setImportacaoItens(data);
                 if (index === 4) setEventos(data);
                 if (index === 5) setDevolucoes(data);
-            } else if (res.status === 'rejected') {
-                console.error(`Erro ao carregar tabela index ${index}:`, res.reason);
             }
         });
 
       } catch (err) {
-        console.error("Erro crítico ao carregar dados do Supabase:", err);
+        console.error("Erro ao sincronizar:", err);
       } finally {
         setLoading(false);
+        setIsSyncing(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [refreshTrigger]);
+
+  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   const handleLogin = (perfil: UserProfile) => {
     setCurrentUser(perfil);
@@ -91,9 +97,11 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(LAST_PAGE_KEY);
   };
 
   const executarImportacao = async (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
+    setIsSyncing(true);
     const importId = crypto.randomUUID();
     let pedidoExistente = pedidos.find(p => p.codigo_pedido === codigoPedido);
     const pedidoId = pedidoExistente ? pedidoExistente.id : crypto.randomUUID();
@@ -129,7 +137,6 @@ const App: React.FC = () => {
 
     const inseridosCount = novasMaquinas.length;
 
-    // Persistência Supabase
     if (!pedidoExistente) {
       await supabase.from('pedidos').insert({
         id: pedidoId, codigo_pedido: codigoPedido, qtd_esperada: qtdEsperada,
@@ -157,10 +164,11 @@ const App: React.FC = () => {
       supabase.from('eventos_maquina').insert(novosEventos)
     ]);
 
-    window.location.reload(); 
+    triggerRefresh();
   };
 
   const atribuirEmLote = async (maquinaIds: string[], supervisorId: number, consultorNome: string) => {
+    setIsSyncing(true);
     const timestamp = new Date().toISOString();
     
     await supabase.from('maquinas')
@@ -174,10 +182,11 @@ const App: React.FC = () => {
     }));
 
     await supabase.from('eventos_maquina').insert(novosEventos);
-    window.location.reload();
+    triggerRefresh();
   };
 
   const atualizarMaquina = async (maquinaId: string, supervisorId: number, consultorNome: string) => {
+    setIsSyncing(true);
     const timestamp = new Date().toISOString();
     const novoStatus: StatusEstoque = supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL';
 
@@ -190,10 +199,11 @@ const App: React.FC = () => {
       criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema',
       payload: { after: { supervisor: supervisorId, consultor: consultorNome } }
     });
-    window.location.reload();
+    triggerRefresh();
   };
 
   const baixarEmLote = async (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => {
+    setIsSyncing(true);
     const timestamp = dataBaixa ? new Date(dataBaixa + 'T12:00:00').toISOString() : new Date().toISOString();
     
     await supabase.from('maquinas')
@@ -211,10 +221,11 @@ const App: React.FC = () => {
     }));
 
     await supabase.from('eventos_maquina').insert(novosEventos);
-    window.location.reload();
+    triggerRefresh();
   };
 
   const disponibilizarEmLote = async (maquinaIds: string[]) => {
+    setIsSyncing(true);
     const timestamp = new Date().toISOString();
 
     await supabase.from('maquinas')
@@ -228,10 +239,11 @@ const App: React.FC = () => {
     }));
 
     await supabase.from('eventos_maquina').insert(novosEventos);
-    window.location.reload();
+    triggerRefresh();
   };
 
   const desfazerBaixa = async (maquinaId: string, justificativa: string) => {
+    setIsSyncing(true);
     const machine = maquinas.find(m => m.id === maquinaId);
     if (!machine) return;
     const novoStatus: StatusEstoque = machine.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL';
@@ -248,28 +260,30 @@ const App: React.FC = () => {
       criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema',
       justificativa, payload: { after: { status: novoStatus } }
     });
-    window.location.reload();
+    triggerRefresh();
   };
 
   const registrarDevolucao = async (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => {
+    setIsSyncing(true);
     await supabase.from('devolucoes').insert({
       id: crypto.randomUUID(),
       criado_em: new Date().toISOString(),
       criado_por: currentUser?.nome || 'Sistema',
       ...dados
     });
-    window.location.reload();
+    triggerRefresh();
   };
 
   const atualizarEnvioDevolucao = async (id: string, dados: { data_envio_correios: string, codigo_rastreio: string, observacao_envio: string }) => {
+    setIsSyncing(true);
     await supabase.from('devolucoes').update(dados).eq('id', id);
-    window.location.reload();
+    triggerRefresh();
   };
 
   const contextValue = useMemo(() => ({
-    currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading,
+    currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing,
     executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, registrarDevolucao, atualizarEnvioDevolucao, logout: handleLogout,
-  }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading]);
+  }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
   return (
     <AppContext.Provider value={contextValue}>

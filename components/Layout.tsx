@@ -1,5 +1,5 @@
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import Dashboard from './Dashboard';
 import Cadastros from './Cadastros';
 import Relatorios from './Relatorios';
@@ -8,6 +8,8 @@ import CalculadoraGanhos from './CalculadoraGanhos';
 import { Page } from '../types';
 import { AppContext } from '../App';
 import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon } from './ui/Icons';
+
+const LAST_PAGE_KEY = 'xisto_last_page';
 
 const NavItem: React.FC<{
   icon: React.ReactNode;
@@ -30,24 +32,47 @@ const NavItem: React.FC<{
 
 const Layout: React.FC = () => {
   const context = useContext(AppContext);
+  const currentUser = context?.currentUser;
+
+  const navItems = [
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
+    { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
+    { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
+    { id: 'calculadora' as Page, label: 'Calculadora de Ganhos', icon: <HistoryIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Consultor'] },
+  ];
+
+  const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser?.perfil || ''));
   
   const [page, setPage] = useState<Page>(() => {
-    if (context?.currentUser?.perfil === 'Consultor') return 'calculadora';
-    if (context?.currentUser?.perfil === 'Supervisor') return 'cadastros';
+    const savedPage = localStorage.getItem(LAST_PAGE_KEY) as Page;
+    const role = currentUser?.perfil;
+
+    if (savedPage) {
+        const canAccess = navItems.find(n => n.id === savedPage && n.roles.includes(role || ''));
+        if (canAccess) return savedPage;
+    }
+
+    if (role === 'Consultor') return 'calculadora';
+    if (role === 'Supervisor') return 'cadastros';
     return 'dashboard';
   });
   
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
+  useEffect(() => {
+    localStorage.setItem(LAST_PAGE_KEY, page);
+  }, [page]);
+
   if (!context) return null;
-  const { currentUser, logout, loading } = context;
+  const { logout, loading, isSyncing } = context;
 
   const renderPage = () => {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center h-full space-y-4">
            <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
-           <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-400">Sincronizando com a Nuvem...</p>
+           <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-400">Iniciando Sistema...</p>
         </div>
       );
     }
@@ -68,16 +93,6 @@ const Layout: React.FC = () => {
     }
   };
 
-  const navItems = [
-    { id: 'dashboard' as Page, label: 'Dashboard', icon: <DashboardIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
-    { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
-    { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
-    { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
-    { id: 'calculadora' as Page, label: 'Calculadora de Ganhos', icon: <HistoryIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Consultor'] },
-  ];
-
-  const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser?.perfil || ''));
-  
   const sidebarContent = (
      <div className="h-full flex flex-col bg-white text-gray-800 border-r-2 border-gray-100">
         <div className="flex flex-col items-center justify-center py-10 px-6 border-b-2 border-gray-50 bg-slate-50/30">
@@ -104,6 +119,12 @@ const Layout: React.FC = () => {
             ))}
         </nav>
         <div className="p-4 mt-auto border-t-2 border-gray-50">
+          {isSyncing && (
+             <div className="flex items-center justify-center gap-2 mb-4 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg animate-pulse">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                <span className="text-[9px] font-black uppercase tracking-widest">Sincronizando Dados...</span>
+             </div>
+          )}
           <button onClick={logout} className="flex items-center w-full px-4 py-3 text-left text-gray-700 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors duration-200">
             <LogoutIcon className="w-5 h-5" />
             <span className="ml-3">Sair da conta</span>
