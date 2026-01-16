@@ -4,12 +4,11 @@ import { AppContext } from '../App';
 import Card from './ui/Card';
 import { CreditCardIcon, CheckCircleIcon, ListIcon, FileTextIcon, ExitIcon } from './ui/Icons';
 import { SUPERVISORES } from '../constants';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Relatorios: React.FC = () => {
     const context = useContext(AppContext);
     
-    // Filtros
+    // Filtros expandidos conforme solicitado
     const [filters, setFilters] = useState({
         pedido: '',
         status: '',
@@ -17,7 +16,8 @@ const Relatorios: React.FC = () => {
         consultor: '',
         dataImportacao: '',
         dataAtribuicao: '',
-        regiao: '' // Novo filtro
+        dataBaixa: '',
+        regiao: ''
     });
 
     // Paginação
@@ -41,32 +41,48 @@ const Relatorios: React.FC = () => {
             result = result.filter(m => m.supervisor_id === currentUser.supervisorId);
         }
         return result.filter(m => {
+            const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
+            
             const matchPedido = filters.pedido ? m.pedido_id === filters.pedido : true;
             const matchStatus = filters.status ? m.status_estoque === filters.status : true;
             const matchSupervisor = filters.supervisor ? m.supervisor_id === parseInt(filters.supervisor) : true;
-            const matchConsultor = filters.consultor ? m.consultor_nome?.toLowerCase().includes(filters.consultor.toLowerCase()) : true;
+            const matchConsultor = filters.consultor ? m.consultor_nome?.toUpperCase().includes(filters.consultor.trim().toUpperCase()) : true;
+            
             const matchDataImportacao = filters.dataImportacao ? m.criado_em.startsWith(filters.dataImportacao) : true;
             const matchDataAtribuicao = filters.dataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filters.dataAtribuicao)) : true;
+            const matchDataBaixa = filters.dataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filters.dataBaixa)) : true;
             
-            // Filtro de Região
-            let matchRegiao = true;
-            if (filters.regiao) {
-                const sup = SUPERVISORES.find(s => s.id === m.supervisor_id);
-                if (!sup) {
-                    matchRegiao = false; // Se não tem supervisor, não pertence a região de venda direta neste contexto
-                } else {
-                    const nome = sup.nome.toUpperCase();
-                    if (filters.regiao === 'SERGIPE') {
-                        matchRegiao = nome.startsWith('AJU') || nome.startsWith('SE');
-                    } else if (filters.regiao === 'ALAGOAS') {
-                        matchRegiao = nome.startsWith('MAC');
-                    }
-                }
-            }
+            const matchRegiao = filters.regiao ? pedidoRelacionado?.regiao === filters.regiao : true;
 
-            return matchPedido && matchStatus && matchSupervisor && matchConsultor && matchDataImportacao && matchDataAtribuicao && matchRegiao;
+            return matchPedido && matchStatus && matchSupervisor && matchConsultor && 
+                   matchDataImportacao && matchDataAtribuicao && matchDataBaixa && matchRegiao;
         });
-    }, [maquinas, filters, currentUser]);
+    }, [maquinas, filters, currentUser, pedidos]);
+
+    const handleExportExcel = () => {
+        if (maquinasFiltradas.length === 0) return alert("Não há dados para exportar com os filtros atuais.");
+
+        const dataToExport = maquinasFiltradas.map(m => {
+            const pedido = pedidos.find(p => p.id === m.pedido_id);
+            const supervisor = SUPERVISORES.find(s => s.id === m.supervisor_id);
+            return {
+                'SERIAL': m.serial,
+                'LOTE_PEDIDO': pedido?.codigo_pedido || 'N/A',
+                'REGIAO': pedido?.regiao || 'N/A',
+                'STATUS': m.status_estoque,
+                'OPERACAO_SUPERVISOR': supervisor?.nome || 'ESTOQUE CENTRAL',
+                'CONSULTOR': m.consultor_nome || 'N/A',
+                'DATA_IMPORTACAO': m.criado_em ? new Date(m.criado_em).toLocaleDateString() : '-',
+                'DATA_ATRIBUICAO': m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-',
+                'DATA_BAIXA': m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'
+            };
+        });
+
+        const worksheet = (window as any).XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = (window as any).XLSX.utils.book_new();
+        (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, "Auditoria_Xisto");
+        (window as any).XLSX.writeFile(workbook, `Relatorio_Auditoria_Xisto_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
 
     const paginatedItems = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -81,90 +97,106 @@ const Relatorios: React.FC = () => {
         return { total, disp, atrib, baix };
     }, [maquinasFiltradas]);
 
+    const totalPages = Math.ceil(maquinasFiltradas.length / itemsPerPage);
+
     return (
         <div className="p-4 md:p-8 space-y-8 bg-slate-50 min-h-screen print:bg-white print:p-0">
             <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border-2 border-slate-200 space-y-8 print:hidden">
                 <div className="flex justify-between items-center border-b-2 border-slate-100 pb-6">
                     <div>
-                        <h1 className="text-4xl font-black text-slate-950 tracking-tighter">Auditoria de Inventário</h1>
-                        <p className="text-slate-900 font-bold text-[10px] uppercase tracking-[0.3em] mt-1">Logs detalhados de operação e rastreabilidade</p>
+                        <h1 className="text-4xl font-black text-slate-950 tracking-tighter uppercase">Auditoria de Inventário</h1>
+                        <p className="text-slate-900 font-bold text-[10px] uppercase tracking-[0.3em] mt-1">Logs detalhados de operação e rastreabilidade por região</p>
                     </div>
-                    <button onClick={() => window.print()} className="bg-slate-950 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase flex items-center gap-3 hover:bg-black transition-all shadow-xl border-2 border-slate-900 active:scale-95">
-                        <FileTextIcon className="w-5 h-5" /> Exportar Relatório
+                    <button onClick={handleExportExcel} className="bg-slate-950 text-white px-6 py-4 rounded-2xl font-black text-[10px] uppercase flex items-center gap-3 hover:bg-black transition-all shadow-xl border-2 border-slate-900 active:scale-95 group">
+                        <FileTextIcon className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Exportar Relatório (Excel)
                     </button>
                 </div>
 
-                {/* Ajuste de grid para 4 colunas em telas grandes para acomodar o novo filtro */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Lote de Pedido</label>
-                        <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.pedido} onChange={e => setFilters({...filters, pedido: e.target.value})}>
-                            <option value="">TODOS OS LOTES</option>
-                            {pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido}</option>)}
-                        </select>
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Lote de Pedido</label>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.pedido} onChange={e => setFilters({...filters, pedido: e.target.value})}>
+                                <option value="">TODOS OS LOTES</option>
+                                {pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Status da Máquina</label>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}>
+                                <option value="">TODOS OS STATUS</option>
+                                <option value="DISPONIVEL">DISPONÍVEL</option>
+                                <option value="ATRIBUIDA">ATRIBUÍDA</option>
+                                <option value="BAIXADA">BAIXADA</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região do Lote</label>
+                            <select 
+                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
+                                value={filters.regiao}
+                                onChange={e => setFilters({...filters, regiao: e.target.value})}
+                            >
+                                <option value="">TODAS AS REGIÕES</option>
+                                <option value="SERGIPE">SERGIPE</option>
+                                <option value="ALAGOAS">ALAGOAS</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Supervisor Resp.</label>
+                            <select 
+                                disabled={currentUser?.perfil === 'Supervisor'}
+                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" 
+                                value={filters.supervisor} 
+                                onChange={e => setFilters({...filters, supervisor: e.target.value})}
+                            >
+                                <option value="">TODOS SUPERVISORES</option>
+                                {SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Status da Máquina</label>
-                        <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}>
-                            <option value="">TODOS OS STATUS</option>
-                            <option value="DISPONIVEL">DISPONÍVEL</option>
-                            <option value="ATRIBUIDA">ATRIBUÍDA</option>
-                            <option value="BAIXADA">BAIXADA</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região</label>
-                        <select 
-                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
-                            value={filters.regiao}
-                            onChange={e => setFilters({...filters, regiao: e.target.value})}
-                        >
-                            <option value="">TODAS AS REGIÕES</option>
-                            <option value="SERGIPE">SERGIPE (AJU/SE)</option>
-                            <option value="ALAGOAS">ALAGOAS (MAC)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Supervisor Resp.</label>
-                        <select 
-                            disabled={currentUser?.perfil === 'Supervisor'}
-                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" 
-                            value={filters.supervisor} 
-                            onChange={e => setFilters({...filters, supervisor: e.target.value})}
-                        >
-                            <option value="">TODOS SUPERVISORES</option>
-                            {SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Consultor de Vendas</label>
-                        <input 
-                            type="text" 
-                            placeholder="FILTRAR NOME..."
-                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase" 
-                            value={filters.consultor} 
-                            onChange={e => setFilters({...filters, consultor: e.target.value})}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Importação</label>
-                        <input 
-                            type="date" 
-                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase"
-                            value={filters.dataImportacao}
-                            onChange={e => setFilters({...filters, dataImportacao: e.target.value})}
-                            style={{ colorScheme: 'light' }}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Atribuição</label>
-                        <input 
-                            type="date" 
-                            className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase"
-                            value={filters.dataAtribuicao}
-                            onChange={e => setFilters({...filters, dataAtribuicao: e.target.value})}
-                            style={{ colorScheme: 'light' }}
-                        />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Consultor de Vendas</label>
+                            <input 
+                                type="text" 
+                                placeholder="Filtrar nome..."
+                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase"
+                                value={filters.consultor}
+                                onChange={e => setFilters({...filters, consultor: e.target.value})}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Importação</label>
+                            <input 
+                                type="date"
+                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
+                                value={filters.dataImportacao}
+                                onChange={e => setFilters({...filters, dataImportacao: e.target.value})}
+                                style={{ colorScheme: 'light' }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Atribuição</label>
+                            <input 
+                                type="date"
+                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
+                                value={filters.dataAtribuicao}
+                                onChange={e => setFilters({...filters, dataAtribuicao: e.target.value})}
+                                style={{ colorScheme: 'light' }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Baixa</label>
+                            <input 
+                                type="date"
+                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
+                                value={filters.dataBaixa}
+                                onChange={e => setFilters({...filters, dataBaixa: e.target.value})}
+                                style={{ colorScheme: 'light' }}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -186,48 +218,60 @@ const Relatorios: React.FC = () => {
                         <thead className="bg-slate-200 text-slate-950 font-black border-b-2 border-slate-300 uppercase text-[10px] tracking-widest">
                             <tr>
                                 <th className="p-6">Serial</th>
-                                <th className="p-6">Lote/Pedido</th>
+                                <th className="p-6">Lote/Pedido / Região</th>
                                 <th className="p-6">Status</th>
                                 <th className="p-6">Responsáveis</th>
                                 <th className="p-6">Linha do Tempo</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y-2 divide-slate-100">
-                            {paginatedItems.map(m => (
-                                <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="p-6 font-mono font-black text-slate-950 text-lg tracking-tighter">{m.serial}</td>
-                                    <td className="p-6 font-black text-blue-800 uppercase text-xs">{pedidos.find(p => p.id === m.pedido_id)?.codigo_pedido}</td>
-                                    <td className="p-6">
-                                        <span className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase border-2 tracking-widest ${
-                                            m.status_estoque === 'DISPONIVEL' ? 'text-emerald-950 border-emerald-300 bg-emerald-100' : 
-                                            m.status_estoque === 'ATRIBUIDA' ? 'text-indigo-950 border-indigo-300 bg-indigo-100' : 
-                                            'text-red-950 border-red-300 bg-red-100'
-                                        }`}>{m.status_estoque}</span>
-                                    </td>
-                                    <td className="p-6">
-                                        <p className="font-black text-slate-950 text-sm leading-tight">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
-                                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-tight mt-0.5">{m.consultor_nome || 'LIVRE'}</p>
-                                    </td>
-                                    <td className="p-6">
-                                        <div className="space-y-1.5 text-[9px] font-black uppercase text-slate-900 max-w-[140px]">
-                                            <div className="flex justify-between border-b border-slate-200 pb-0.5">
-                                                <span className="text-slate-500">Importado:</span>
-                                                <span className="text-slate-950">{m.criado_em ? new Date(m.criado_em).toLocaleDateString() : '-'}</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-slate-200 pb-0.5">
-                                                <span className="text-indigo-600">Atribuído:</span>
-                                                <span className="text-slate-950">{m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'}</span>
-                                            </div>
-                                            {m.status_estoque === 'BAIXADA' && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-red-600">Baixado:</span>
-                                                    <span className="text-slate-950">{m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'}</span>
-                                                </div>
+                            {paginatedItems.map(m => {
+                                const pedido = pedidos.find(p => p.id === m.pedido_id);
+                                return (
+                                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="p-6 font-mono font-black text-slate-950 text-lg tracking-tighter">{m.serial}</td>
+                                        <td className="p-6">
+                                            <p className="font-black text-blue-800 uppercase text-xs">{pedido?.codigo_pedido}</p>
+                                            {pedido?.regiao && (
+                                                <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[8px] font-black uppercase border ${
+                                                    pedido.regiao === 'SERGIPE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                }`}>
+                                                    {pedido.regiao}
+                                                </span>
                                             )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="p-6">
+                                            <span className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase border-2 tracking-widest ${
+                                                m.status_estoque === 'DISPONIVEL' ? 'text-emerald-950 border-emerald-300 bg-emerald-100' : 
+                                                m.status_estoque === 'ATRIBUIDA' ? 'text-indigo-950 border-indigo-300 bg-indigo-100' : 
+                                                'text-red-950 border-red-300 bg-red-100'
+                                            }`}>{m.status_estoque}</span>
+                                        </td>
+                                        <td className="p-6">
+                                            <p className="font-black text-slate-950 text-sm leading-tight">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
+                                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-tight mt-0.5">{m.consultor_nome || 'LIVRE'}</p>
+                                        </td>
+                                        <td className="p-6">
+                                            <div className="space-y-1.5 text-[9px] font-black uppercase text-slate-900 max-w-[140px]">
+                                                <div className="flex justify-between border-b border-slate-200 pb-0.5">
+                                                    <span className="text-slate-500">Importado:</span>
+                                                    <span className="text-slate-950">{m.criado_em ? new Date(m.criado_em).toLocaleDateString() : '-'}</span>
+                                                </div>
+                                                <div className="flex justify-between border-b border-slate-200 pb-0.5">
+                                                    <span className="text-indigo-600">Atribuído:</span>
+                                                    <span className="text-slate-950">{m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'}</span>
+                                                </div>
+                                                {m.status_estoque === 'BAIXADA' && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-red-600">Baixado:</span>
+                                                        <span className="text-slate-950">{m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {paginatedItems.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="p-20 text-center font-black text-slate-400 uppercase tracking-widest text-xs italic">Nenhum registro encontrado para os filtros atuais.</td>
@@ -236,6 +280,16 @@ const Relatorios: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
+                
+                {totalPages > 1 && (
+                     <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50 print:hidden">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Página {currentPage} de {totalPages}</span>
+                        <div className="flex gap-2">
+                            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50 hover:bg-slate-50 transition">Anterior</button>
+                            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50 hover:bg-slate-50 transition">Próxima</button>
+                        </div>
+                     </div>
+                )}
             </div>
         </div>
     );

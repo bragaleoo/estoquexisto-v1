@@ -1,11 +1,13 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useContext } from 'react';
+import { AppContext } from '../App';
 import { CreditCardIcon, FileTextIcon, HistoryIcon } from './ui/Icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
 type Senioridade = 'Junior' | 'Pleno' | 'Senior';
 
 const CalculadoraGanhos: React.FC = () => {
+    const context = useContext(AppContext);
     const [config, setConfig] = useState({
         senioridade: 'Junior' as Senioridade,
     });
@@ -80,12 +82,81 @@ const CalculadoraGanhos: React.FC = () => {
         ].filter(d => d.value > 0 || d.count > 0);
     }, [results, v1, v2]);
 
+    const handleExportPDF = () => {
+        const { jsPDF } = (window as any).jspdf;
+        const doc = new jsPDF();
+        const userName = context?.currentUser?.nome || 'Consultor Xisto';
+        const dateStr = new Date().toLocaleDateString();
+
+        // Cabeçalho
+        doc.setFillColor(15, 23, 42); // slate-950
+        doc.rect(0, 0, 210, 40, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("Xisto • Relatório de Projeção", 15, 25);
+        
+        doc.setFontSize(10);
+        doc.text(`SIMULAÇÃO REALIZADA POR: ${userName.toUpperCase()}`, 15, 33);
+        doc.text(`DATA: ${dateStr}`, 180, 33, { align: 'right' });
+
+        // Informações Principais
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(14);
+        doc.text("Configuração da Simulação", 15, 55);
+        
+        doc.autoTable({
+            startY: 60,
+            head: [['Item', 'Configuração']],
+            body: [
+                ['Nível de Senioridade', config.senioridade.toUpperCase()],
+                ['Volume Mensal (V1)', `${v1.vendas_mes} Máquinas`],
+            ],
+            theme: 'striped',
+            headStyles: { fillColor: [30, 64, 175] }
+        });
+
+        // Tabela V2
+        doc.text("Performance de Vendas (V2)", 15, doc.lastAutoTable.finalY + 15);
+        doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 20,
+            head: [['Faixa de Faturamento', 'Quantidade', 'Bônus Calculado']],
+            body: [
+                ['PF 18k - 29k', v2.pf_18_29, `R$ ${results.valPF18}`],
+                ['PF 30k+', v2.pf_30_plus, `R$ ${results.valPF30}`],
+                ['PJ 18k - 29k', v2.pj_18_29, `R$ ${results.valPJ18}`],
+                ['PJ 30k+', v2.pj_30_plus, `R$ ${results.valPJ30}`],
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [4, 120, 87] }
+        });
+
+        // Resumo Final
+        const finalY = doc.lastAutoTable.finalY + 20;
+        doc.setFillColor(248, 250, 252);
+        doc.rect(15, finalY, 180, 40, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(15, finalY, 180, 40, 'S');
+
+        doc.setFontSize(12);
+        doc.text("RESUMO CONSOLIDADO DOS GANHOS", 20, finalY + 12);
+        
+        doc.setFontSize(10);
+        doc.text(`Subtotal Quantidade (V1): R$ ${results.bonusV1}`, 20, finalY + 22);
+        doc.text(`Subtotal Performance (V2): R$ ${results.bonusV2_Total}`, 20, finalY + 28);
+
+        doc.setFontSize(16);
+        doc.setTextColor(30, 64, 175);
+        doc.text(`TOTAL PROJETADO: R$ ${results.totalGeral}`, 185, finalY + 25, { align: 'right' });
+
+        doc.save(`Projecao_Ganhos_Xisto_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
     const updateInput = (setter: any, key: string, val: string) => {
         const intVal = Math.max(0, parseInt(val) || 0);
         setter((prev: any) => ({ ...prev, [key]: intVal }));
     };
 
-    // Custom Tooltip para legibilidade máxima
     const CustomTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
@@ -108,8 +179,12 @@ const CalculadoraGanhos: React.FC = () => {
                     <p className="text-slate-900 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">Simulação de Performance de Vendas</p>
                 </div>
                 <div className="flex gap-3">
-                    <button className="bg-emerald-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg border-2 border-emerald-900 hover:bg-emerald-900 transition-all active:scale-95">EXCEL</button>
-                    <button className="bg-slate-950 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg border-2 border-slate-900 hover:bg-black transition-all active:scale-95">PDF</button>
+                    <button 
+                        onClick={handleExportPDF}
+                        className="bg-slate-950 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-xl border-2 border-slate-900 hover:bg-black transition-all active:scale-95 flex items-center gap-3"
+                    >
+                        <FileTextIcon className="w-5 h-5" /> Exportar para PDF
+                    </button>
                 </div>
             </div>
 

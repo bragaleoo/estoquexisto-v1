@@ -15,9 +15,11 @@ interface AppContextType {
   executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => void;
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => void;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string) => void;
-  baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string) => void;
+  baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => void;
   desfazerBaixa: (maquinaId: string, justificativa: string) => void;
+  disponibilizarEmLote: (maquinaIds: string[]) => void;
   registrarDevolucao: (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => void;
+  atualizarEnvioDevolucao: (id: string, dados: { data_envio_correios: string, codigo_rastreio: string, observacao_envio: string }) => void;
   logout: () => void;
 }
 
@@ -50,7 +52,6 @@ const App: React.FC = () => {
     let pedidoExistente = pedidos.find(p => p.codigo_pedido === codigoPedido);
     const pedidoId = pedidoExistente ? pedidoExistente.id : crypto.randomUUID();
 
-    // Define a data base: se o usuário passou uma data (YYYY-MM-DD), usamos ela (meio-dia para evitar timezone issues), senão usa agora.
     const dataBase = dataPedido ? new Date(dataPedido + 'T12:00:00').toISOString() : new Date().toISOString();
 
     const novasMaquinas: Maquina[] = [];
@@ -68,13 +69,13 @@ const App: React.FC = () => {
           pedido_id: pedidoId,
           import_id: importId,
           status_estoque: 'DISPONIVEL',
-          criado_em: dataBase // Usa a data definida pelo usuário ou atual
+          criado_em: dataBase
         });
         novosEventos.push({
             id: crypto.randomUUID(),
             maquina_id: mId,
             tipo_evento: 'IMPORTADA',
-            criado_em: new Date().toISOString(), // Evento de log é sempre "agora"
+            criado_em: new Date().toISOString(),
             criado_por: currentUser?.nome || 'Sistema',
             payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido } }
         });
@@ -93,9 +94,7 @@ const App: React.FC = () => {
             qtd_importada: p.qtd_importada + counts.inseridos, 
             status_importacao: (qtdEsperada && (p.qtd_importada + counts.inseridos) >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL',
             qtd_esperada: qtdEsperada || p.qtd_esperada,
-            regiao: regiao || p.regiao // Atualiza região se fornecida, senão mantém
-            // Nota: Não atualizamos a data de criação de um pedido existente para manter histórico, 
-            // mas as novas máquinas usarão a data informada.
+            regiao: regiao || p.regiao
         } : p));
     } else {
         setPedidos(prev => [{
@@ -105,7 +104,7 @@ const App: React.FC = () => {
             qtd_importada: counts.inseridos,
             status_importacao: (qtdEsperada && counts.inseridos >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL',
             regiao: regiao,
-            criado_em: dataBase, // Novo pedido usa a data informada
+            criado_em: dataBase,
             criado_por: currentUser?.nome || 'Sistema'
         }, ...prev]);
     }
@@ -158,7 +157,6 @@ const App: React.FC = () => {
             };
             setEventos(prevEv => [novoEvento, ...prevEv]);
             
-            // Se tinha supervisor e agora mudou, mantém como atribuída. Se não tinha nada, pode virar atribuída.
             const novoStatus: StatusEstoque = supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL';
             
             return { 
@@ -173,8 +171,8 @@ const App: React.FC = () => {
     }));
   };
 
-  const baixarEmLote = (maquinaIds: string[], motivo: MotivoBaixa, observacao: string) => {
-    const timestamp = new Date().toISOString();
+  const baixarEmLote = (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => {
+    const timestamp = dataBaixa ? new Date(dataBaixa + 'T12:00:00').toISOString() : new Date().toISOString();
     const novosEventos: EventoMaquina[] = [];
 
     setMaquinas(prev => prev.map(m => {
@@ -210,7 +208,6 @@ const App: React.FC = () => {
 
         const novoStatus: StatusEstoque = machine.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL';
         
-        // Registrar Evento
         const novoEvento: EventoMaquina = {
             id: crypto.randomUUID(),
             maquina_id: maquinaId,
@@ -239,6 +236,36 @@ const App: React.FC = () => {
     });
   };
 
+  const disponibilizarEmLote = (maquinaIds: string[]) => {
+    const timestamp = new Date().toISOString();
+    const novosEventos: EventoMaquina[] = [];
+
+    setMaquinas(prev => prev.map(m => {
+        if (maquinaIds.includes(m.id)) {
+            novosEventos.push({
+                id: crypto.randomUUID(),
+                maquina_id: m.id,
+                tipo_evento: 'EDICAO',
+                criado_em: timestamp,
+                criado_por: currentUser?.nome || 'Sistema',
+                payload: { 
+                    before: { status: m.status_estoque, supervisor: m.supervisor_id, consultor: m.consultor_nome }, 
+                    after: { status: 'DISPONIVEL', supervisor: undefined, consultor: undefined } 
+                }
+            });
+            return { 
+                ...m, 
+                status_estoque: 'DISPONIVEL', 
+                supervisor_id: undefined, 
+                consultor_nome: undefined,
+                atribuido_em: undefined 
+            };
+        }
+        return m;
+    }));
+    setEventos(prev => [...novosEventos, ...prev]);
+  };
+
   const registrarDevolucao = (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => {
       const novaDevolucao: Devolucao = {
           id: crypto.randomUUID(),
@@ -249,10 +276,14 @@ const App: React.FC = () => {
       setDevolucoes(prev => [novaDevolucao, ...prev]);
   };
 
+  const atualizarEnvioDevolucao = (id: string, dados: { data_envio_correios: string, codigo_rastreio: string, observacao_envio: string }) => {
+    setDevolucoes(prev => prev.map(d => d.id === id ? { ...d, ...dados } : d));
+  };
+
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes,
-    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, registrarDevolucao, logout: handleLogout,
-  }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes]);
+    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, registrarDevolucao, atualizarEnvioDevolucao, logout: handleLogout,
+  }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, disponibilizarEmLote]);
 
   return (
     <AppContext.Provider value={contextValue}>

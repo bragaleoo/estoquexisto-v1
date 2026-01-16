@@ -39,8 +39,14 @@ export interface Devolucao {
     serial: string;
     supervisor_id: number;
     consultor_nome: string;
-    data_envio: string;
-    observacao: string;
+    data_entrega: string; // Data da entrega inicial
+    observacao_inicial: string;
+    
+    // Informações de Envio (preenchidas na segunda etapa)
+    data_envio_correios?: string;
+    codigo_rastreio?: string;
+    observacao_envio?: string;
+
     criado_em: string;
     criado_por: string;
 }
