@@ -78,12 +78,13 @@ const Cadastros: React.FC = () => {
             return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
         });
 
-        // ORDENAÇÃO: ATRIBUIDAS PRIMEIRO, depois por CRIAÇÃO DESC
+        // ORDENAÇÃO: ATRIBUIDAS NO TOPO (Prioridade absoluta)
         return filtered.sort((a, b) => {
+            // Se status for diferente, Atribuída sempre ganha (-1)
             if (a.status_estoque === 'ATRIBUIDA' && b.status_estoque !== 'ATRIBUIDA') return -1;
             if (a.status_estoque !== 'ATRIBUIDA' && b.status_estoque === 'ATRIBUIDA') return 1;
             
-            // Caso ambos tenham o mesmo status, ordena pelo mais novo
+            // Se ambos são atribuídos ou ambos são disponíveis, ordena pelo mais recente
             return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime();
         });
     }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao]);
@@ -279,6 +280,11 @@ const Cadastros: React.FC = () => {
                                     </tr>
                                 );
                             })}
+                            {paginatedInventory.length === 0 && (
+                                <tr>
+                                    <td colSpan={8} className="p-20 text-center font-black text-slate-400 uppercase tracking-widest text-xs italic">Nenhum registro encontrado.</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -288,7 +294,7 @@ const Cadastros: React.FC = () => {
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{paginatedInventory.length} de {filteredInventory.length} registros</span>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
-                            <div className="px-4 py-2 bg-slate-200 rounded-xl font-black text-[10px]">{currentPage} / {totalPages}</div>
+                            <div className="px-4 py-2 bg-slate-200 rounded-xl font-black text-[10px] flex items-center">{currentPage} / {totalPages}</div>
                             <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
                         </div>
                      </div>
