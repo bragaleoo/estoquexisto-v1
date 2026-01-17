@@ -8,7 +8,6 @@ import { SUPERVISORES } from '../constants';
 const Relatorios: React.FC = () => {
     const context = useContext(AppContext);
     
-    // Filtros expandidos conforme solicitado
     const [filters, setFilters] = useState({
         pedido: '',
         status: '',
@@ -20,7 +19,6 @@ const Relatorios: React.FC = () => {
         regiao: ''
     });
 
-    // Paginação
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 50;
 
@@ -42,16 +40,13 @@ const Relatorios: React.FC = () => {
         }
         return result.filter(m => {
             const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
-            
             const matchPedido = filters.pedido ? m.pedido_id === filters.pedido : true;
             const matchStatus = filters.status ? m.status_estoque === filters.status : true;
             const matchSupervisor = filters.supervisor ? m.supervisor_id === parseInt(filters.supervisor) : true;
             const matchConsultor = filters.consultor ? m.consultor_nome?.toUpperCase().includes(filters.consultor.trim().toUpperCase()) : true;
-            
             const matchDataImportacao = filters.dataImportacao ? m.criado_em.startsWith(filters.dataImportacao) : true;
             const matchDataAtribuicao = filters.dataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filters.dataAtribuicao)) : true;
             const matchDataBaixa = filters.dataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filters.dataBaixa)) : true;
-            
             const matchRegiao = filters.regiao ? pedidoRelacionado?.regiao === filters.regiao : true;
 
             return matchPedido && matchStatus && matchSupervisor && matchConsultor && 
@@ -61,7 +56,6 @@ const Relatorios: React.FC = () => {
 
     const handleExportExcel = () => {
         if (maquinasFiltradas.length === 0) return alert("Não há dados para exportar com os filtros atuais.");
-
         const dataToExport = maquinasFiltradas.map(m => {
             const pedido = pedidos.find(p => p.id === m.pedido_id);
             const supervisor = SUPERVISORES.find(s => s.id === m.supervisor_id);
@@ -77,7 +71,6 @@ const Relatorios: React.FC = () => {
                 'DATA_BAIXA': m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'
             };
         });
-
         const worksheet = (window as any).XLSX.utils.json_to_sheet(dataToExport);
         const workbook = (window as any).XLSX.utils.book_new();
         (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, "Auditoria_Xisto");
@@ -132,70 +125,30 @@ const Relatorios: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região do Lote</label>
-                            <select 
-                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
-                                value={filters.regiao}
-                                onChange={e => setFilters({...filters, regiao: e.target.value})}
-                            >
-                                <option value="">TODAS AS REGIÕES</option>
-                                <option value="SERGIPE">SERGIPE</option>
-                                <option value="ALAGOAS">ALAGOAS</option>
-                            </select>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.regiao} onChange={e => setFilters({...filters, regiao: e.target.value})}><option value="">TODAS AS REGIÕES</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select>
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Supervisor Resp.</label>
-                            <select 
-                                disabled={currentUser?.perfil === 'Supervisor'}
-                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" 
-                                value={filters.supervisor} 
-                                onChange={e => setFilters({...filters, supervisor: e.target.value})}
-                            >
-                                <option value="">TODOS SUPERVISORES</option>
-                                {SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                            </select>
+                            <select disabled={currentUser?.perfil === 'Supervisor'} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" value={filters.supervisor} onChange={e => setFilters({...filters, supervisor: e.target.value})}><option value="">TODOS SUPERVISORES</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Consultor de Vendas</label>
-                            <input 
-                                type="text" 
-                                placeholder="Filtrar nome..."
-                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase"
-                                value={filters.consultor}
-                                onChange={e => setFilters({...filters, consultor: e.target.value})}
-                            />
+                            <input type="text" placeholder="Filtrar nome..." className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase" value={filters.consultor} onChange={e => setFilters({...filters, consultor: e.target.value})} />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Importação</label>
-                            <input 
-                                type="date"
-                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
-                                value={filters.dataImportacao}
-                                onChange={e => setFilters({...filters, dataImportacao: e.target.value})}
-                                style={{ colorScheme: 'light' }}
-                            />
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataImportacao} onChange={e => setFilters({...filters, dataImportacao: e.target.value})} style={{ colorScheme: 'light' }} />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Atribuição</label>
-                            <input 
-                                type="date"
-                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
-                                value={filters.dataAtribuicao}
-                                onChange={e => setFilters({...filters, dataAtribuicao: e.target.value})}
-                                style={{ colorScheme: 'light' }}
-                            />
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataAtribuicao} onChange={e => setFilters({...filters, dataAtribuicao: e.target.value})} style={{ colorScheme: 'light' }} />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Baixa</label>
-                            <input 
-                                type="date"
-                                className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700"
-                                value={filters.dataBaixa}
-                                onChange={e => setFilters({...filters, dataBaixa: e.target.value})}
-                                style={{ colorScheme: 'light' }}
-                            />
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataBaixa} onChange={e => setFilters({...filters, dataBaixa: e.target.value})} style={{ colorScheme: 'light' }} />
                         </div>
                     </div>
                 </div>
@@ -248,8 +201,8 @@ const Relatorios: React.FC = () => {
                                             }`}>{m.status_estoque}</span>
                                         </td>
                                         <td className="p-6">
-                                            <p className="font-black text-slate-950 text-sm leading-tight">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
-                                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-tight mt-0.5">{m.consultor_nome || 'LIVRE'}</p>
+                                            <p className="font-black text-slate-950 text-sm leading-tight">{m.consultor_nome || 'LIVRE'}</p>
+                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-tight mt-0.5">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
                                         </td>
                                         <td className="p-6">
                                             <div className="space-y-1.5 text-[9px] font-black uppercase text-slate-900 max-w-[140px]">
@@ -272,11 +225,6 @@ const Relatorios: React.FC = () => {
                                     </tr>
                                 );
                             })}
-                            {paginatedItems.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="p-20 text-center font-black text-slate-400 uppercase tracking-widest text-xs italic">Nenhum registro encontrado para os filtros atuais.</td>
-                                </tr>
-                            )}
                         </tbody>
                     </table>
                 </div>
@@ -285,8 +233,8 @@ const Relatorios: React.FC = () => {
                      <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50 print:hidden">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Página {currentPage} de {totalPages}</span>
                         <div className="flex gap-2">
-                            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50 hover:bg-slate-50 transition">Anterior</button>
-                            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50 hover:bg-slate-50 transition">Próxima</button>
+                            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
+                            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
                         </div>
                      </div>
                 )}

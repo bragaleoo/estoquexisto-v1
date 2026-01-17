@@ -3,7 +3,7 @@ import React, { useContext, useMemo } from 'react';
 import { AppContext } from '../App';
 import Card from './ui/Card';
 import { CreditCardIcon, CheckCircleIcon, ListIcon } from './ui/Icons';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { SUPERVISORES } from '../constants';
 
 const Dashboard: React.FC = () => {
@@ -12,58 +12,40 @@ const Dashboard: React.FC = () => {
   if (!context) return null;
   const { maquinas, pedidos } = context;
 
-  const stats = useMemo(() => {
-    return {
-      totalMaquinas: maquinas.length,
-      totalPedidos: pedidos.length,
-      pedidosCompletos: pedidos.filter(p => p.status_importacao === 'COMPLETA').length,
-    };
-  }, [maquinas, pedidos]);
-
-  // Cálculo de Estoque por Região
-  const dadosRegionais = useMemo(() => {
+  // Cálculo de Estoque por Região com nova lógica: Atribuídas + Disponíveis
+  const regionalStats = useMemo(() => {
     let sergipe = 0;
     let alagoas = 0;
     let central = 0;
 
     maquinas.forEach(m => {
-        // Ignora baixadas, pois queremos saber o disponível (Atribuído ou em Estoque Central)
+        // Ignora baixadas (vendas/devoluções finalizadas)
         if (m.status_estoque === 'BAIXADA') return;
 
-        if (m.supervisor_id) {
-            const supervisor = SUPERVISORES.find(s => s.id === m.supervisor_id);
-            if (supervisor) {
-                const nome = supervisor.nome.toUpperCase();
-                // Lógica de Região: AJU ou SE = Sergipe, MAC = Alagoas
-                if (nome.startsWith('AJU') || nome.startsWith('SE')) {
-                    sergipe++;
-                } else if (nome.startsWith('MAC')) {
-                    alagoas++;
-                } else {
-                    // Caso exista outro prefixo futuro
-                    central++; 
-                }
-            }
-        } else {
-            // Sem supervisor = Estoque Central
+        const pedido = pedidos.find(p => p.id === m.pedido_id);
+        const regiao = pedido?.regiao;
+
+        // Lógica de Região Baseada no Pedido (Lote)
+        if (regiao === 'SERGIPE') {
+            sergipe++;
+        } else if (regiao === 'ALAGOAS') {
+            alagoas++;
+        }
+
+        // Lógica de Estoque Central (Tudo que está disponível, independente de região)
+        if (m.status_estoque === 'DISPONIVEL') {
             central++;
         }
     });
 
-    return [
-        { name: 'Sergipe', quantidade: sergipe, color: '#1d4ed8' }, // Blue
-        { name: 'Alagoas', quantidade: alagoas, color: '#047857' }, // Emerald
-        { name: 'Central', quantidade: central, color: '#64748b' }, // Slate
-    ];
-  }, [maquinas]);
+    return { sergipe, alagoas, central };
+  }, [maquinas, pedidos]);
 
-  const regionalStats = useMemo(() => {
-    return {
-        sergipe: dadosRegionais.find(d => d.name === 'Sergipe')?.quantidade || 0,
-        alagoas: dadosRegionais.find(d => d.name === 'Alagoas')?.quantidade || 0,
-        central: dadosRegionais.find(d => d.name === 'Central')?.quantidade || 0,
-    };
-  }, [dadosRegionais]);
+  const dadosGrafico = useMemo(() => [
+    { name: 'Sergipe', quantidade: regionalStats.sergipe, color: '#1d4ed8' },
+    { name: 'Alagoas', quantidade: regionalStats.alagoas, color: '#047857' },
+    { name: 'Central', quantidade: regionalStats.central, color: '#64748b' },
+  ], [regionalStats]);
 
   return (
     <div className="p-4 md:p-8 space-y-8 bg-slate-50 min-h-screen">
@@ -73,27 +55,7 @@ const Dashboard: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Totais Gerais */}
-        <Card 
-          title="Total de Máquinas"
-          value={stats.totalMaquinas}
-          icon={<CreditCardIcon className="w-8 h-8 text-white" />}
-          color="bg-blue-900 shadow-xl shadow-blue-200"
-        />
-        <Card 
-          title="Lotes Importados"
-          value={stats.totalPedidos}
-          icon={<ListIcon className="w-8 h-8 text-white" />}
-          color="bg-indigo-900 shadow-xl shadow-indigo-200"
-        />
-        <Card 
-          title="Lotes Finalizados"
-          value={stats.pedidosCompletos}
-          icon={<CheckCircleIcon className="w-8 h-8 text-white" />}
-          color="bg-emerald-900 shadow-xl shadow-emerald-200"
-        />
-
-        {/* Distribuição Regional */}
+        {/* Distribuição Regional Atualizada */}
         <Card 
           title="Disponível Sergipe"
           value={regionalStats.sergipe}
@@ -115,15 +77,15 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Gráfico Regional Atualizado */}
+        {/* Gráfico Regional */}
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border-2 border-slate-200">
           <h2 className="text-[10px] font-black text-slate-950 mb-10 uppercase tracking-[0.3em] flex items-center gap-3">
               <span className="w-2 h-6 bg-blue-700 rounded-full"></span>
-              Estoque Disponível por Região
+              Distribuição de Ativos por Região
           </h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dadosRegionais} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                <BarChart data={dadosGrafico} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
                     <XAxis 
                         dataKey="name" 
@@ -142,7 +104,7 @@ const Dashboard: React.FC = () => {
                         contentStyle={{ borderRadius: '16px', border: 'none', fontWeight: '900', color: '#0f172a', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} 
                     />
                     <Bar dataKey="quantidade" radius={[10, 10, 0, 0]} barSize={60}>
-                        {dadosRegionais.map((entry, index) => (
+                        {dadosGrafico.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                     </Bar>
@@ -151,6 +113,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Atividades Recentes */}
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border-2 border-slate-200">
           <h2 className="text-[10px] font-black text-slate-950 mb-10 uppercase tracking-[0.3em] flex items-center gap-3">
                <span className="w-2 h-6 bg-emerald-700 rounded-full"></span>

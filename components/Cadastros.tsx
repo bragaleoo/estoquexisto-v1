@@ -74,23 +74,16 @@ const Cadastros: React.FC = () => {
             return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
         });
 
-        // PESOS PARA ORDENAÇÃO PRIORITÁRIA
         const statusWeight: Record<string, number> = {
-            'ATRIBUIDA': 0,    // TOPO
-            'DISPONIVEL': 1,   // MEIO
-            'BAIXADA': 2       // FIM
+            'ATRIBUIDA': 0,
+            'DISPONIVEL': 1,
+            'BAIXADA': 2
         };
 
         return filtered.sort((a, b) => {
-            // Primeiro critério: Status (Atribuída sempre ganha)
             const weightA = statusWeight[a.status_estoque] ?? 99;
             const weightB = statusWeight[b.status_estoque] ?? 99;
-            
-            if (weightA !== weightB) {
-                return weightA - weightB;
-            }
-            
-            // Segundo critério: Mais recente primeiro
+            if (weightA !== weightB) return weightA - weightB;
             return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime();
         });
     }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao]);
@@ -277,7 +270,10 @@ const Cadastros: React.FC = () => {
                                         <td className="p-5"><span className={`px-3 py-1 rounded-lg font-black text-[9px] border-2 uppercase ${m.status_estoque === 'DISPONIVEL' ? 'bg-emerald-100 text-emerald-950 border-emerald-300' : m.status_estoque === 'ATRIBUIDA' ? 'bg-indigo-100 text-indigo-950 border-indigo-300' : 'bg-red-100 text-red-950 border-red-300'}`}>{m.status_estoque}</span></td>
                                         <td className="p-5 text-xs font-black text-slate-700">{m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'}</td>
                                         {showBaixadas && <td className="p-5 text-xs font-black text-slate-700">{m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'}</td>}
-                                        <td className="p-5"><p className="font-black text-slate-900 text-xs">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p><p className="text-[9px] font-black text-slate-600 uppercase">{m.consultor_nome || 'N/A'}</p></td>
+                                        <td className="p-5">
+                                            <p className="font-black text-slate-900 text-xs">{m.consultor_nome || 'N/A'}</p>
+                                            <p className="text-[9px] font-black text-slate-500 uppercase">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
+                                        </td>
                                         {!showBaixadas && (
                                             <td className="p-5">
                                                 <button onClick={e => openEditModal(e, m)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"><EditIcon className="w-4 h-4" /></button>
@@ -286,11 +282,6 @@ const Cadastros: React.FC = () => {
                                     </tr>
                                 );
                             })}
-                            {paginatedInventory.length === 0 && (
-                                <tr>
-                                    <td colSpan={8} className="p-20 text-center font-black text-slate-400 uppercase tracking-widest text-xs italic">Nenhum registro encontrado.</td>
-                                </tr>
-                            )}
                         </tbody>
                     </table>
                 </div>
@@ -306,7 +297,7 @@ const Cadastros: React.FC = () => {
                      </div>
                 )}
             </div>
-
+            
             <Modal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} title="Importar Novo Lote">
                 <ImportWizard onSuccess={() => setImportModalOpen(false)} />
             </Modal>
