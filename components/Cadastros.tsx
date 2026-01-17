@@ -11,7 +11,6 @@ const Cadastros: React.FC = () => {
     const context = useContext(AppContext);
     const [isImportModalOpen, setImportModalOpen] = useState(false);
     
-    // Filtros
     const [filterPedido, setFilterPedido] = useState('');
     const [filterSerial, setFilterSerial] = useState('');
     const [filterDataImportacao, setFilterDataImportacao] = useState('');
@@ -37,10 +36,7 @@ const Cadastros: React.FC = () => {
     });
 
     const [editingMachine, setEditingMachine] = useState<Maquina | null>(null);
-    const [editData, setEditData] = useState({ 
-        supervisor: '', 
-        consultor: '' 
-    });
+    const [editData, setEditData] = useState({ supervisor: '', consultor: '' });
 
     if (!context) return null;
     const { pedidos, maquinas, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, currentUser } = context;
@@ -78,13 +74,23 @@ const Cadastros: React.FC = () => {
             return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
         });
 
-        // ORDENAÇÃO: ATRIBUIDAS NO TOPO (Prioridade absoluta)
+        // PESOS PARA ORDENAÇÃO PRIORITÁRIA
+        const statusWeight: Record<string, number> = {
+            'ATRIBUIDA': 0,    // TOPO
+            'DISPONIVEL': 1,   // MEIO
+            'BAIXADA': 2       // FIM
+        };
+
         return filtered.sort((a, b) => {
-            // Se status for diferente, Atribuída sempre ganha (-1)
-            if (a.status_estoque === 'ATRIBUIDA' && b.status_estoque !== 'ATRIBUIDA') return -1;
-            if (a.status_estoque !== 'ATRIBUIDA' && b.status_estoque === 'ATRIBUIDA') return 1;
+            // Primeiro critério: Status (Atribuída sempre ganha)
+            const weightA = statusWeight[a.status_estoque] ?? 99;
+            const weightB = statusWeight[b.status_estoque] ?? 99;
             
-            // Se ambos são atribuídos ou ambos são disponíveis, ordena pelo mais recente
+            if (weightA !== weightB) {
+                return weightA - weightB;
+            }
+            
+            // Segundo critério: Mais recente primeiro
             return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime();
         });
     }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao]);
