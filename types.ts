@@ -26,6 +26,7 @@ export interface Maquina {
   status_estoque: StatusEstoque;
   supervisor_id?: number;
   consultor_nome?: string;
+  regiao?: Regiao; // Região específica da máquina (sobrescreve a do pedido)
   atribuido_em?: string;
   baixado_em?: string;
   baixado_por?: string;

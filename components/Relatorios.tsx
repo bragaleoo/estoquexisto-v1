@@ -40,6 +40,8 @@ const Relatorios: React.FC = () => {
         }
         return result.filter(m => {
             const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
+            const regiaoEfetiva = m.regiao || pedidoRelacionado?.regiao;
+
             const matchPedido = filters.pedido ? m.pedido_id === filters.pedido : true;
             const matchStatus = filters.status ? m.status_estoque === filters.status : true;
             const matchSupervisor = filters.supervisor ? m.supervisor_id === parseInt(filters.supervisor) : true;
@@ -47,7 +49,7 @@ const Relatorios: React.FC = () => {
             const matchDataImportacao = filters.dataImportacao ? m.criado_em.startsWith(filters.dataImportacao) : true;
             const matchDataAtribuicao = filters.dataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filters.dataAtribuicao)) : true;
             const matchDataBaixa = filters.dataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filters.dataBaixa)) : true;
-            const matchRegiao = filters.regiao ? pedidoRelacionado?.regiao === filters.regiao : true;
+            const matchRegiao = filters.regiao ? regiaoEfetiva === filters.regiao : true;
 
             return matchPedido && matchStatus && matchSupervisor && matchConsultor && 
                    matchDataImportacao && matchDataAtribuicao && matchDataBaixa && matchRegiao;
@@ -62,7 +64,7 @@ const Relatorios: React.FC = () => {
             return {
                 'SERIAL': m.serial,
                 'LOTE_PEDIDO': pedido?.codigo_pedido || 'N/A',
-                'REGIAO': pedido?.regiao || 'N/A',
+                'REGIAO_EFETIVA': m.regiao || pedido?.regiao || 'N/A',
                 'STATUS': m.status_estoque,
                 'OPERACAO_SUPERVISOR': supervisor?.nome || 'ESTOQUE CENTRAL',
                 'CONSULTOR': m.consultor_nome || 'N/A',
@@ -124,7 +126,7 @@ const Relatorios: React.FC = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região do Lote</label>
+                            <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região Atual</label>
                             <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.regiao} onChange={e => setFilters({...filters, regiao: e.target.value})}><option value="">TODAS AS REGIÕES</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select>
                         </div>
                         <div>
@@ -180,16 +182,17 @@ const Relatorios: React.FC = () => {
                         <tbody className="divide-y-2 divide-slate-100">
                             {paginatedItems.map(m => {
                                 const pedido = pedidos.find(p => p.id === m.pedido_id);
+                                const regiaoEfetiva = m.regiao || pedido?.regiao;
                                 return (
                                     <tr key={m.id} className="hover:bg-slate-50 transition-colors">
                                         <td className="p-6 font-mono font-black text-slate-950 text-lg tracking-tighter">{m.serial}</td>
                                         <td className="p-6">
                                             <p className="font-black text-blue-800 uppercase text-xs">{pedido?.codigo_pedido}</p>
-                                            {pedido?.regiao && (
+                                            {regiaoEfetiva && (
                                                 <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[8px] font-black uppercase border ${
-                                                    pedido.regiao === 'SERGIPE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    regiaoEfetiva === 'SERGIPE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                 }`}>
-                                                    {pedido.regiao}
+                                                    {regiaoEfetiva}
                                                 </span>
                                             )}
                                         </td>

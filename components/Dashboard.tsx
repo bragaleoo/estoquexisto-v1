@@ -23,9 +23,10 @@ const Dashboard: React.FC = () => {
         if (m.status_estoque === 'BAIXADA') return;
 
         const pedido = pedidos.find(p => p.id === m.pedido_id);
-        const regiao = pedido?.regiao;
+        // Prioriza a região da máquina (se houve transferência manual), senão usa a do pedido original
+        const regiao = m.regiao || pedido?.regiao;
 
-        // Lógica de Região Baseada no Pedido (Lote)
+        // Lógica de Região Baseada no Inventário Real
         if (regiao === 'SERGIPE') {
             sergipe++;
         } else if (regiao === 'ALAGOAS') {

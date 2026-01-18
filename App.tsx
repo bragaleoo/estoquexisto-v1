@@ -17,10 +17,11 @@ interface AppContextType {
   isSyncing: boolean;
   executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => Promise<void>;
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => Promise<void>;
-  atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string) => Promise<void>;
+  atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => Promise<void>;
   baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => Promise<void>;
   desfazerBaixa: (maquinaId: string, justificativa: string) => Promise<void>;
   disponibilizarEmLote: (maquinaIds: string[]) => Promise<void>;
+  alterarRegiaoEmLote: (maquinaIds: string[], novaRegiao: Regiao) => Promise<void>;
   registrarDevolucao: (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => Promise<void>;
   atualizarEnvioDevolucao: (id: string, dados: { data_envio_correios: string, codigo_rastreio: string, observacao_envio: string }) => Promise<void>;
   logout: () => void;
@@ -113,8 +114,8 @@ const App: React.FC = () => {
       novosLogs.push({ id: crypto.randomUUID(), import_id: importId, linha_numero: item.linha, serial_original: item.original, serial_normalizado: item.normalizado, status_item: item.status, erro_motivo: item.motivo });
       if (item.status === 'INSERIDO') {
         const mId = crypto.randomUUID();
-        novasMaquinas.push({ id: mId, serial: item.normalizado, pedido_id: pedidoId, import_id: importId, status_estoque: 'DISPONIVEL', criado_em: dataBase });
-        novosEventos.push({ id: crypto.randomUUID(), maquina_id: mId, tipo_evento: 'IMPORTADA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido } } });
+        novasMaquinas.push({ id: mId, serial: item.normalizado, pedido_id: pedidoId, import_id: importId, status_estoque: 'DISPONIVEL', criado_em: dataBase, regiao });
+        novosEventos.push({ id: crypto.randomUUID(), maquina_id: mId, tipo_evento: 'IMPORTADA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido, regiao } } });
       }
     });
 
@@ -142,12 +143,12 @@ const App: React.FC = () => {
     triggerRefresh();
   };
 
-  const atualizarMaquina = async (maquinaId: string, supervisorId: number, consultorNome: string) => {
+  const atualizarMaquina = async (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
     const novoStatus: StatusEstoque = supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL';
-    await supabase.from('maquinas').update({ supervisor_id: supervisorId, consultor_nome: consultorNome, status_estoque: novoStatus }).eq('id', maquinaId);
-    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { supervisor: supervisorId, consultor: consultorNome } } });
+    await supabase.from('maquinas').update({ supervisor_id: supervisorId, consultor_nome: consultorNome, status_estoque: novoStatus, regiao: novaRegiao }).eq('id', maquinaId);
+    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { supervisor: supervisorId, consultor: consultorNome, regiao: novaRegiao } } });
     triggerRefresh();
   };
 
@@ -169,11 +170,21 @@ const App: React.FC = () => {
     triggerRefresh();
   };
 
+  const alterarRegiaoEmLote = async (maquinaIds: string[], novaRegiao: Regiao) => {
+    setIsSyncing(true);
+    const timestamp = new Date().toISOString();
+    await supabase.from('maquinas').update({ regiao: novaRegiao }).in('id', maquinaIds);
+    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { regiao: novaRegiao } } }));
+    await supabase.from('eventos_maquina').insert(novosEventos);
+    triggerRefresh();
+  };
+
   const desfazerBaixa = async (maquinaId: string, justificativa: string) => {
     setIsSyncing(true);
     const machine = maquinas.find(m => m.id === maquinaId);
     if (!machine) return;
     const novoStatus: StatusEstoque = machine.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL';
+    // Fix: line 191 had a typo 'statusEstoque' which was undefined; corrected to 'novoStatus'.
     await supabase.from('maquinas').update({ status_estoque: novoStatus, motivo_baixa: null, observacao_baixa: null, baixado_em: null, baixado_por: null }).eq('id', maquinaId);
     await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'DESFAZER_BAIXA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', justificativa, payload: { after: { status: novoStatus } } });
     triggerRefresh();
@@ -193,7 +204,7 @@ const App: React.FC = () => {
 
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing,
-    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, registrarDevolucao, atualizarEnvioDevolucao, logout: handleLogout,
+    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
   return (

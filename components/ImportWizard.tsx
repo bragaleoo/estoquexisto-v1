@@ -29,11 +29,14 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
     const normalize = (val: any) => {
         if (val === undefined || val === null) return '';
+        // Remove caracteres invisíveis, espaços e garante uppercase
         return val.toString().trim().toUpperCase().replace(/[\u200B-\u200D\uFEFF]/g, '');
     };
 
     const validate = (val: string) => {
-        return /^NCC[A-Z0-9]+$/.test(val);
+        // Aceita NCC, NCB, A910 (com ou sem hífen) e outros padrões comuns
+        // Permite letras, números e hifens, com tamanho mínimo de 6 caracteres
+        return /^[A-Z0-9-]+$/.test(val) && val.length >= 6;
     };
 
     const processFile = (file: File) => {
@@ -66,7 +69,8 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                     if (serialColIndex === -1) {
                         for(let r=0; r < Math.min(data.length, 10); r++) {
                             const row = data[r];
-                            const idx = row.findIndex(c => c && c.toString().toUpperCase().startsWith('NCC'));
+                            // Tenta achar qualquer coluna que tenha um padrão de serial (começa com letra/número e tem tamanho)
+                            const idx = row.findIndex(c => c && /^[A-Z0-9-]{6,}$/i.test(c.toString().trim()));
                             if (idx !== -1) { serialColIndex = idx; break; }
                         }
                     }
@@ -90,7 +94,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
                     if (!validate(norm)) {
                         status = 'INVALIDO';
-                        motivo = 'Formato inválido (prefixo NCC)';
+                        motivo = 'Formato de serial não reconhecido';
                     } else if (seenInFile.has(norm)) {
                         status = 'DUPLICADO_ARQUIVO';
                         motivo = 'Duplicado no arquivo';
@@ -140,8 +144,8 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             formData.qtdEsperada ? parseInt(formData.qtdEsperada) : undefined,
             fileData.name,
             fileData.rows,
-            formData.dataPedido, // Passa a data selecionada
-            formData.regiao === '' ? undefined : formData.regiao // Passa a região
+            formData.dataPedido, 
+            formData.regiao === '' ? undefined : formData.regiao
         );
         setStep(4);
     };
