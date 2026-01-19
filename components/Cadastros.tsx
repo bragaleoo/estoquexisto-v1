@@ -43,7 +43,7 @@ const Cadastros: React.FC = () => {
     const { pedidos, maquinas, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
 
-    // Lista única de consultores (Estilo Excel) - Gerada dinamicamente das máquinas existentes
+    // Lista única de consultores para o Datalist (Estilo buscador dinâmico)
     const listaConsultores = useMemo(() => {
         const nomes = maquinas
             .map(m => m.consultor_nome)
@@ -52,7 +52,10 @@ const Cadastros: React.FC = () => {
     }, [maquinas]);
 
     useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
-    useEffect(() => { setFilterStatus(''); }, [showBaixadas]);
+    useEffect(() => { 
+        setFilterStatus(''); 
+        setFilterDataBaixa(''); // Limpa filtro de baixa ao mudar aba
+    }, [showBaixadas]);
 
     const getSupervisorRegion = (supervisorName: string): Regiao | null => {
         const name = supervisorName.toUpperCase();
@@ -79,7 +82,7 @@ const Cadastros: React.FC = () => {
             const matchDataBaixa = filterDataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filterDataBaixa)) : true;
             const matchStatus = filterStatus ? m.status_estoque === filterStatus : true;
             const matchOp = filterOp ? m.supervisor_id === parseInt(filterOp) : true;
-            const matchConsultor = filterConsultor ? m.consultor_nome === filterConsultor : true;
+            const matchConsultor = filterConsultor ? (m.consultor_nome || '').toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
             const matchRegiao = filterRegiao ? regiaoEfetiva === filterRegiao : true;
 
             return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
@@ -112,7 +115,8 @@ const Cadastros: React.FC = () => {
                 'OPERACAO': supervisor?.nome || 'CENTRAL',
                 'CONSULTOR': m.consultor_nome || 'N/A',
                 'DATA_IMPORTACAO': m.criado_em ? new Date(m.criado_em).toLocaleDateString() : '-',
-                'DATA_ATRIBUICAO': m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'
+                'DATA_ATRIBUICAO': m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-',
+                'DATA_BAIXA': m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'
             };
         });
         const worksheet = (window as any).XLSX.utils.json_to_sheet(dataToExport);
@@ -243,6 +247,9 @@ const Cadastros: React.FC = () => {
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value)} /></div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Data Imp.</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterDataImportacao} onChange={e => setFilterDataImportacao(e.target.value)} /></div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Data Atrib.</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterDataAtribuicao} onChange={e => setFilterDataAtribuicao(e.target.value)} /></div>
+                        {showBaixadas && (
+                             <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Data Baixa</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none border-red-200" value={filterDataBaixa} onChange={e => setFilterDataBaixa(e.target.value)} /></div>
+                        )}
                         {!showBaixadas && (
                             <div>
                                 <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Status</label>
@@ -257,10 +264,17 @@ const Cadastros: React.FC = () => {
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Operação</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={filterOp} onChange={e => setFilterOp(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                         <div>
                             <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Consultor</label>
-                            <select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase" value={filterConsultor} onChange={e => setFilterConsultor(e.target.value)}>
-                                <option value="">TODOS</option>
-                                {listaConsultores.map(nome => <option key={nome} value={nome}>{nome}</option>)}
-                            </select>
+                            <input 
+                                type="text" 
+                                list="cadastros-consultores-list"
+                                placeholder="BUSCAR..." 
+                                className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" 
+                                value={filterConsultor} 
+                                onChange={e => setFilterConsultor(e.target.value)} 
+                            />
+                            <datalist id="cadastros-consultores-list">
+                                {listaConsultores.map(nome => <option key={nome} value={nome} />)}
+                            </datalist>
                         </div>
                     </div>
                 </div>
@@ -338,7 +352,17 @@ const Cadastros: React.FC = () => {
                                 <option value="">SELECIONE A OPERAÇÃO *</option>
                                 {SUPERVISORES.map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                             </select>
-                            <input type="text" placeholder="NOME DO CONSULTOR (OPCIONAL)" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={batchData.consultor} onChange={e => setBatchData({...batchData, consultor: e.target.value})} />
+                            <input 
+                                type="text" 
+                                list="batch-consultor-list"
+                                placeholder="NOME DO CONSULTOR (OPCIONAL)" 
+                                className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
+                                value={batchData.consultor} 
+                                onChange={e => setBatchData({...batchData, consultor: e.target.value})} 
+                            />
+                            <datalist id="batch-consultor-list">
+                                {listaConsultores.map(nome => <option key={nome} value={nome} />)}
+                            </datalist>
                         </>
                     ) : batchAction === 'baixar' ? (
                         <>
@@ -386,7 +410,16 @@ const Cadastros: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>
-                        <input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={editData.consultor} onChange={e => setEditData({...editData, consultor: e.target.value})} />
+                        <input 
+                            type="text" 
+                            list="edit-consultor-list"
+                            className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
+                            value={editData.consultor} 
+                            onChange={e => setEditData({...editData, consultor: e.target.value})} 
+                        />
+                        <datalist id="edit-consultor-list">
+                            {listaConsultores.map(nome => <option key={nome} value={nome} />)}
+                        </datalist>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={handleSaveEdit} className="flex-1 bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl">Salvar Alterações</button>

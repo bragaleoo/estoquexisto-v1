@@ -39,7 +39,7 @@ const Devolucoes: React.FC = () => {
     const { devolucoes, registrarDevolucao, atualizarEnvioDevolucao, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
 
-    // Lista única de consultores (Estilo Excel)
+    // Lista única de consultores para o buscador inteligente
     const listaConsultores = useMemo(() => {
         const nomes = devolucoes
             .map(d => d.consultor_nome)
@@ -64,7 +64,7 @@ const Devolucoes: React.FC = () => {
         return list.filter(d => {
             const matchSerial = filterSerial ? d.serial.toUpperCase().includes(filterSerial.trim().toUpperCase()) : true;
             const matchSupervisor = filterSupervisor ? d.supervisor_id === parseInt(filterSupervisor) : true;
-            const matchConsultor = filterConsultor ? d.consultor_nome === filterConsultor : true;
+            const matchConsultor = filterConsultor ? (d.consultor_nome || '').toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
             const matchData = filterData ? d.data_entrega === filterData : true;
              let matchRegiao = true;
              if (filterRegiao) {
@@ -169,10 +169,17 @@ const Devolucoes: React.FC = () => {
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label><select disabled={isSupervisor} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600 disabled:opacity-50" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                     <div>
                         <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Consultor</label>
-                        <select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterConsultor} onChange={e => setFilterConsultor(e.target.value)}>
-                            <option value="">TODOS</option>
-                            {listaConsultores.map(nome => <option key={nome} value={nome}>{nome}</option>)}
-                        </select>
+                        <input 
+                            type="text" 
+                            list="devolucoes-consultor-list"
+                            placeholder="BUSCAR OU ESCREVER..."
+                            className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" 
+                            value={filterConsultor} 
+                            onChange={e => setFilterConsultor(e.target.value)} 
+                        />
+                        <datalist id="devolucoes-consultor-list">
+                            {listaConsultores.map(nome => <option key={nome} value={nome} />)}
+                        </datalist>
                     </div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Data Entrega</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterData} onChange={e => setFilterData(e.target.value)} style={{ colorScheme: 'light' }} /></div>
                 </div>
@@ -229,7 +236,20 @@ const Devolucoes: React.FC = () => {
                 <div className="space-y-4">
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Serial da Máquina *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="DIGITE O SERIAL" value={formData.serial} onChange={e => setFormData({...formData, serial: e.target.value})} /></div>
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}><option value="">SELECIONE...</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="NOME DO CONSULTOR" value={formData.consultor} onChange={e => setFormData({...formData, consultor: e.target.value})} /></div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>
+                        <input 
+                            type="text" 
+                            list="new-devolucao-consultor-list"
+                            className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
+                            placeholder="NOME DO CONSULTOR" 
+                            value={formData.consultor} 
+                            onChange={e => setFormData({...formData, consultor: e.target.value})} 
+                        />
+                        <datalist id="new-devolucao-consultor-list">
+                            {listaConsultores.map(nome => <option key={nome} value={nome} />)}
+                        </datalist>
+                    </div>
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Data da Entrega *</label><input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={formData.dataEntrega} onChange={e => setFormData({...formData, dataEntrega: e.target.value})} style={{ colorScheme: 'light' }} /></div>
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES DO DEFEITO..." value={formData.observacaoInicial} onChange={e => setFormData({...formData, observacaoInicial: e.target.value})} /></div>
                     <button onClick={handleCreateSubmit} className="w-full bg-slate-950 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl mt-2 hover:bg-black transition">Registrar Entrada</button>
