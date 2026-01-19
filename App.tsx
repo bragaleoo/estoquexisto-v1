@@ -24,18 +24,18 @@ interface AppContextType {
   alterarRegiaoEmLote: (maquinaIds: string[], novaRegiao: Regiao) => Promise<void>;
   registrarDevolucao: (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => Promise<void>;
   atualizarEnvioDevolucao: (id: string, dados: { data_envio_correios: string, codigo_rastreio: string, observacao_envio: string }) => Promise<void>;
+  login: (user: UserProfile) => void;
   logout: () => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);
 
 const SESSION_KEY = 'xisto_user_session';
-const LAST_PAGE_KEY = 'xisto_last_page';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    const savedSession = localStorage.getItem(SESSION_KEY);
-    return savedSession ? JSON.parse(savedSession) : null;
+    const saved = localStorage.getItem(SESSION_KEY);
+    return saved ? JSON.parse(saved) : null;
   });
   
   const [loading, setLoading] = useState(true);
@@ -83,20 +83,20 @@ const App: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, [refreshTrigger]);
+    if (currentUser) fetchData();
+    else setLoading(false);
+  }, [refreshTrigger, currentUser]);
 
   const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
-  const handleLogin = (perfil: UserProfile) => {
-    setCurrentUser(perfil);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(perfil));
+  const handleLogin = (user: UserProfile) => {
+    setCurrentUser(user);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(LAST_PAGE_KEY);
   };
 
   const executarImportacao = async (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
@@ -184,7 +184,6 @@ const App: React.FC = () => {
     const machine = maquinas.find(m => m.id === maquinaId);
     if (!machine) return;
     const novoStatus: StatusEstoque = machine.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL';
-    // Fix: line 191 had a typo 'statusEstoque' which was undefined; corrected to 'novoStatus'.
     await supabase.from('maquinas').update({ status_estoque: novoStatus, motivo_baixa: null, observacao_baixa: null, baixado_em: null, baixado_por: null }).eq('id', maquinaId);
     await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'DESFAZER_BAIXA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', justificativa, payload: { after: { status: novoStatus } } });
     triggerRefresh();
@@ -204,12 +203,20 @@ const App: React.FC = () => {
 
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing,
-    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, logout: handleLogout,
+    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, login: handleLogin, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
   return (
     <AppContext.Provider value={contextValue}>
-      {currentUser ? <Layout /> : <LoginScreen onLogin={handleLogin} />}
+      {loading ? (
+        <div className="h-screen w-screen flex items-center justify-center bg-slate-900">
+           <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-white"></div>
+        </div>
+      ) : currentUser ? (
+        <Layout />
+      ) : (
+        <LoginScreen onLogin={handleLogin} />
+      )}
     </AppContext.Provider>
   );
 };

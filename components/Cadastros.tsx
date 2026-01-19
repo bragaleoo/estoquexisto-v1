@@ -43,6 +43,14 @@ const Cadastros: React.FC = () => {
     const { pedidos, maquinas, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
 
+    // Lista única de consultores (Estilo Excel) - Gerada dinamicamente das máquinas existentes
+    const listaConsultores = useMemo(() => {
+        const nomes = maquinas
+            .map(m => m.consultor_nome)
+            .filter((nome): nome is string => !!nome && nome.trim() !== '');
+        return Array.from(new Set(nomes)).sort();
+    }, [maquinas]);
+
     useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
     useEffect(() => { setFilterStatus(''); }, [showBaixadas]);
 
@@ -71,7 +79,7 @@ const Cadastros: React.FC = () => {
             const matchDataBaixa = filterDataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filterDataBaixa)) : true;
             const matchStatus = filterStatus ? m.status_estoque === filterStatus : true;
             const matchOp = filterOp ? m.supervisor_id === parseInt(filterOp) : true;
-            const matchConsultor = filterConsultor ? m.consultor_nome?.toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
+            const matchConsultor = filterConsultor ? m.consultor_nome === filterConsultor : true;
             const matchRegiao = filterRegiao ? regiaoEfetiva === filterRegiao : true;
 
             return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
@@ -146,7 +154,7 @@ const Cadastros: React.FC = () => {
             const supervisorId = parseInt(batchData.supervisor);
             if (!supervisorId) return alert("Selecione a operação.");
             if (checkRegionConflict(selectedIds, supervisorId)) return;
-            await atribuirEmLote(selectedIds, supervisorId, batchData.consultor);
+            await atribuirEmLote(selectedIds, supervisorId, batchData.consultor.toUpperCase());
         } else if (batchAction === 'baixar') {
             await baixarEmLote(selectedIds, batchData.motivo, batchData.obs, batchData.dataBaixa);
         } else if (batchAction === 'disponibilizar') {
@@ -247,7 +255,13 @@ const Cadastros: React.FC = () => {
                         )}
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Região</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Operação</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={filterOp} onChange={e => setFilterOp(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
-                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Consultor</label><input type="text" placeholder="NOME..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase" value={filterConsultor} onChange={e => setFilterConsultor(e.target.value)} /></div>
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Consultor</label>
+                            <select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase" value={filterConsultor} onChange={e => setFilterConsultor(e.target.value)}>
+                                <option value="">TODOS</option>
+                                {listaConsultores.map(nome => <option key={nome} value={nome}>{nome}</option>)}
+                            </select>
+                        </div>
                     </div>
                 </div>
 

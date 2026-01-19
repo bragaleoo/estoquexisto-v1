@@ -25,6 +25,14 @@ const Relatorios: React.FC = () => {
     if (!context) return null;
     const { maquinas, pedidos, currentUser } = context;
 
+    // Lista única de consultores (Estilo Excel)
+    const listaConsultores = useMemo(() => {
+        const nomes = maquinas
+            .map(m => m.consultor_nome)
+            .filter((nome): nome is string => !!nome && nome.trim() !== '');
+        return Array.from(new Set(nomes)).sort();
+    }, [maquinas]);
+
     useEffect(() => {
         if (currentUser?.perfil === 'Supervisor' && currentUser.supervisorId) {
             setFilters(prev => ({ ...prev, supervisor: currentUser.supervisorId?.toString() || '' }));
@@ -45,7 +53,7 @@ const Relatorios: React.FC = () => {
             const matchPedido = filters.pedido ? m.pedido_id === filters.pedido : true;
             const matchStatus = filters.status ? m.status_estoque === filters.status : true;
             const matchSupervisor = filters.supervisor ? m.supervisor_id === parseInt(filters.supervisor) : true;
-            const matchConsultor = filters.consultor ? m.consultor_nome?.toUpperCase().includes(filters.consultor.trim().toUpperCase()) : true;
+            const matchConsultor = filters.consultor ? m.consultor_nome === filters.consultor : true;
             const matchDataImportacao = filters.dataImportacao ? m.criado_em.startsWith(filters.dataImportacao) : true;
             const matchDataAtribuicao = filters.dataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filters.dataAtribuicao)) : true;
             const matchDataBaixa = filters.dataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filters.dataBaixa)) : true;
@@ -138,7 +146,10 @@ const Relatorios: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Consultor de Vendas</label>
-                            <input type="text" placeholder="Filtrar nome..." className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase" value={filters.consultor} onChange={e => setFilters({...filters, consultor: e.target.value})} />
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase" value={filters.consultor} onChange={e => setFilters({...filters, consultor: e.target.value})}>
+                                <option value="">TODOS</option>
+                                {listaConsultores.map(nome => <option key={nome} value={nome}>{nome}</option>)}
+                            </select>
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Importação</label>

@@ -39,6 +39,14 @@ const Devolucoes: React.FC = () => {
     const { devolucoes, registrarDevolucao, atualizarEnvioDevolucao, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
 
+    // Lista única de consultores (Estilo Excel)
+    const listaConsultores = useMemo(() => {
+        const nomes = devolucoes
+            .map(d => d.consultor_nome)
+            .filter((nome): nome is string => !!nome && nome.trim() !== '');
+        return Array.from(new Set(nomes)).sort();
+    }, [devolucoes]);
+
     useEffect(() => {
         if (isSupervisor && currentUser.supervisorId) {
             setFormData(prev => ({ ...prev, supervisor: currentUser.supervisorId?.toString() || '' }));
@@ -56,7 +64,7 @@ const Devolucoes: React.FC = () => {
         return list.filter(d => {
             const matchSerial = filterSerial ? d.serial.toUpperCase().includes(filterSerial.trim().toUpperCase()) : true;
             const matchSupervisor = filterSupervisor ? d.supervisor_id === parseInt(filterSupervisor) : true;
-            const matchConsultor = filterConsultor ? d.consultor_nome.toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
+            const matchConsultor = filterConsultor ? d.consultor_nome === filterConsultor : true;
             const matchData = filterData ? d.data_entrega === filterData : true;
              let matchRegiao = true;
              if (filterRegiao) {
@@ -159,7 +167,13 @@ const Devolucoes: React.FC = () => {
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value)} /></div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label><select disabled={isSupervisor} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600 disabled:opacity-50" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
-                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Consultor</label><input type="text" placeholder="NOME..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterConsultor} onChange={e => setFilterConsultor(e.target.value)} /></div>
+                    <div>
+                        <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Consultor</label>
+                        <select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterConsultor} onChange={e => setFilterConsultor(e.target.value)}>
+                            <option value="">TODOS</option>
+                            {listaConsultores.map(nome => <option key={nome} value={nome}>{nome}</option>)}
+                        </select>
+                    </div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Data Entrega</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterData} onChange={e => setFilterData(e.target.value)} style={{ colorScheme: 'light' }} /></div>
                 </div>
 
