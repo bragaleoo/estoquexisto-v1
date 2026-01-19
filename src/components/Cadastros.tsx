@@ -1,16 +1,16 @@
 
 import React, { useState, useContext, useMemo, useEffect } from 'react';
-import { AppContext } from '../App';
-import Modal from './ui/Modal';
+import { AppContext } from '../../App';
+import Modal from '../ui/Modal';
 import ImportWizard from './ImportWizard';
-import { FileTextIcon, EditIcon, RefreshCwIcon } from './ui/Icons';
-import { SUPERVISORES } from '../constants';
-import { MotivoBaixa, Maquina, Regiao, StatusEstoque } from '../types';
+import { FileTextIcon, EditIcon, RefreshCwIcon } from '../ui/Icons';
+import { SUPERVISORES } from '../../constants';
+import { MotivoBaixa, Maquina, Regiao, StatusEstoque } from '../../types';
 
 const Cadastros: React.FC = () => {
     const context = useContext(AppContext);
     const [isImportModalOpen, setImportModalOpen] = useState(false);
-    
+
     const [filterPedido, setFilterPedido] = useState('');
     const [filterSerial, setFilterSerial] = useState('');
     const [filterDataImportacao, setFilterDataImportacao] = useState('');
@@ -19,7 +19,7 @@ const Cadastros: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState('');
     const [filterOp, setFilterOp] = useState('');
     const [filterConsultor, setFilterConsultor] = useState('');
-    const [filterRegiao, setFilterRegiao] = useState(''); 
+    const [filterRegiao, setFilterRegiao] = useState('');
 
     const [showBaixadas, setShowBaixadas] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -27,10 +27,10 @@ const Cadastros: React.FC = () => {
 
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [batchAction, setBatchAction] = useState<'atribuir' | 'baixar' | 'disponibilizar' | 'regiao' | null>(null);
-    const [batchData, setBatchData] = useState({ 
-        supervisor: '', 
-        consultor: '', 
-        motivo: 'VENDA' as MotivoBaixa, 
+    const [batchData, setBatchData] = useState({
+        supervisor: '',
+        consultor: '',
+        motivo: 'VENDA' as MotivoBaixa,
         obs: '',
         dataBaixa: new Date().toISOString().split('T')[0],
         novaRegiao: '' as Regiao | ''
@@ -164,8 +164,8 @@ const Cadastros: React.FC = () => {
         e.stopPropagation();
         const pedido = pedidos.find(p => p.id === m.pedido_id);
         setEditingMachine(m);
-        setEditData({ 
-            supervisor: m.supervisor_id?.toString() || '', 
+        setEditData({
+            supervisor: m.supervisor_id?.toString() || '',
             consultor: m.consultor_nome || '',
             regiao: m.regiao || pedido?.regiao || ''
         });
@@ -222,7 +222,7 @@ const Cadastros: React.FC = () => {
                 <div className="p-6 bg-slate-50 border-b-2 border-slate-200 space-y-6">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter flex items-center gap-2">
-                            Filtros de Busca 
+                            Filtros de Busca
                             <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px]">{filteredInventory.length} encontrados</span>
                         </h2>
                         <div className="flex gap-2">
@@ -300,17 +300,17 @@ const Cadastros: React.FC = () => {
                 </div>
 
                 {totalPages > 1 && (
-                     <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50">
+                    <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{paginatedInventory.length} de {filteredInventory.length} registros</span>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
                             <div className="px-4 py-2 bg-slate-200 rounded-xl font-black text-[10px] flex items-center">{currentPage} / {totalPages}</div>
                             <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
                         </div>
-                     </div>
+                    </div>
                 )}
             </div>
-            
+
             <Modal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} title="Importar Novo Lote">
                 <ImportWizard onSuccess={() => setImportModalOpen(false)} />
             </Modal>
@@ -320,24 +320,24 @@ const Cadastros: React.FC = () => {
                     <p className="text-sm font-black text-slate-950 uppercase">{selectedIds.length} máquinas selecionadas.</p>
                     {batchAction === 'atribuir' ? (
                         <>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.supervisor} onChange={e => setBatchData({...batchData, supervisor: e.target.value})}>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.supervisor} onChange={e => setBatchData({ ...batchData, supervisor: e.target.value })}>
                                 <option value="">SELECIONE A OPERAÇÃO *</option>
                                 {SUPERVISORES.map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                             </select>
-                            <input type="text" placeholder="NOME DO CONSULTOR (OPCIONAL)" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={batchData.consultor} onChange={e => setBatchData({...batchData, consultor: e.target.value})} />
+                            <input type="text" placeholder="NOME DO CONSULTOR (OPCIONAL)" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={batchData.consultor} onChange={e => setBatchData({ ...batchData, consultor: e.target.value })} />
                         </>
                     ) : batchAction === 'baixar' ? (
                         <>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.motivo} onChange={e => setBatchData({...batchData, motivo: e.target.value as MotivoBaixa})}>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.motivo} onChange={e => setBatchData({ ...batchData, motivo: e.target.value as MotivoBaixa })}>
                                 <option value="VENDA">VENDA</option><option value="POS_VENDA">PÓS-VENDA</option><option value="DEVOLUCAO">DEVOLUÇÃO</option><option value="ERRO_OPERACIONAL">ERRO OPERACIONAL</option><option value="OUTRO">OUTRO</option>
                             </select>
-                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.dataBaixa} onChange={e => setBatchData({...batchData, dataBaixa: e.target.value})} />
-                            <textarea placeholder="OBSERVAÇÕES" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24" value={batchData.obs} onChange={e => setBatchData({...batchData, obs: e.target.value})} />
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.dataBaixa} onChange={e => setBatchData({ ...batchData, dataBaixa: e.target.value })} />
+                            <textarea placeholder="OBSERVAÇÕES" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24" value={batchData.obs} onChange={e => setBatchData({ ...batchData, obs: e.target.value })} />
                         </>
                     ) : batchAction === 'regiao' ? (
                         <>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Selecione a nova região operacional</label>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.novaRegiao} onChange={e => setBatchData({...batchData, novaRegiao: e.target.value as Regiao})}>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.novaRegiao} onChange={e => setBatchData({ ...batchData, novaRegiao: e.target.value as Regiao })}>
                                 <option value="">SELECIONE...</option>
                                 <option value="SERGIPE">SERGIPE (AJU / SE)</option>
                                 <option value="ALAGOAS">ALAGOAS (MAC)</option>
@@ -351,34 +351,34 @@ const Cadastros: React.FC = () => {
             </Modal>
 
             <Modal isOpen={!!editingMachine} onClose={() => setEditingMachine(null)} title="Editar Ativo">
-                 <div className="space-y-4">
+                <div className="space-y-4">
                     <div className="bg-slate-100 p-4 rounded-xl">
                         <p className="text-[10px] font-black text-slate-500 uppercase">Ativo Serial</p>
                         <p className="text-lg font-black text-slate-900 font-mono">{editingMachine?.serial}</p>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Região Operacional</label>
-                        <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={editData.regiao} onChange={e => setEditData({...editData, regiao: e.target.value as Regiao})}>
+                        <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={editData.regiao} onChange={e => setEditData({ ...editData, regiao: e.target.value as Regiao })}>
                             <option value="SERGIPE">SERGIPE (AJU / SE)</option>
                             <option value="ALAGOAS">ALAGOAS (MAC)</option>
                         </select>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação / Supervisor</label>
-                        <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={editData.supervisor} onChange={e => setEditData({...editData, supervisor: e.target.value})}>
+                        <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={editData.supervisor} onChange={e => setEditData({ ...editData, supervisor: e.target.value })}>
                             <option value="">SELECIONE A OPERAÇÃO *</option>
                             {SUPERVISORES.map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                         </select>
                     </div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>
-                        <input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={editData.consultor} onChange={e => setEditData({...editData, consultor: e.target.value})} />
+                        <input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={editData.consultor} onChange={e => setEditData({ ...editData, consultor: e.target.value })} />
                     </div>
                     <div className="flex gap-2">
                         <button onClick={handleSaveEdit} className="flex-1 bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl">Salvar Alterações</button>
                         <button onClick={handleMakeAvailable} title="Tornar Disponível" className="bg-slate-950 text-white px-6 rounded-xl font-black text-[10px] uppercase shadow-xl"><RefreshCwIcon className="w-4 h-4" /></button>
                     </div>
-                 </div>
+                </div>
             </Modal>
         </div>
     );

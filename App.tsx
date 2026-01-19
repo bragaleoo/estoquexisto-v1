@@ -1,8 +1,8 @@
 
 import React, { useState, createContext, useMemo, useEffect } from 'react';
 import { Maquina, UserProfile, Pedido, Importacao, ImportacaoItem, EventoMaquina, MotivoBaixa, StatusEstoque, Devolucao, Regiao } from './types';
-import LoginScreen from './components/LoginScreen';
-import Layout from './components/Layout';
+import LoginScreen from './src/components/LoginScreen';
+import Layout from './src/components/Layout';
 import { supabase } from './supabase';
 
 interface AppContextType {
@@ -37,11 +37,11 @@ const App: React.FC = () => {
     const savedSession = localStorage.getItem(SESSION_KEY);
     return savedSession ? JSON.parse(savedSession) : null;
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  
+
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
   const [importacoes, setImportacoes] = useState<Importacao[]>([]);
@@ -65,15 +65,15 @@ const App: React.FC = () => {
         ]);
 
         results.forEach((res, index) => {
-            if (res.status === 'fulfilled' && res.value.data) {
-                const data = res.value.data;
-                if (index === 0) setPedidos(data);
-                if (index === 1) setMaquinas(data);
-                if (index === 2) setImportacoes(data);
-                if (index === 3) setImportacaoItens(data);
-                if (index === 4) setEventos(data);
-                if (index === 5) setDevolucoes(data);
-            }
+          if (res.status === 'fulfilled' && res.value.data) {
+            const data = res.value.data;
+            if (index === 0) setPedidos(data);
+            if (index === 1) setMaquinas(data);
+            if (index === 2) setImportacoes(data);
+            if (index === 3) setImportacaoItens(data);
+            if (index === 4) setEventos(data);
+            if (index === 5) setDevolucoes(data);
+          }
         });
       } catch (err) {
         console.error("Erro ao sincronizar:", err);
