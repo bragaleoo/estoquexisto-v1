@@ -1,7 +1,7 @@
 
 import React, { useState, useContext } from 'react';
-import { AppContext } from '../App';
-import { Regiao } from '../types';
+import { AppContext } from '../../App';
+import { Regiao } from '../../types';
 
 interface ProcessedRow {
     linha: number;
@@ -14,8 +14,8 @@ interface ProcessedRow {
 const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     const context = useContext(AppContext);
     const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState({ 
-        codigoPedido: '', 
+    const [formData, setFormData] = useState({
+        codigoPedido: '',
         qtdEsperada: '',
         dataPedido: new Date().toISOString().split('T')[0], // Data atual como padrão
         regiao: '' as Regiao | ''
@@ -23,7 +23,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     const [fileData, setFileData] = useState<{ name: string, rows: ProcessedRow[] } | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    
+
     if (!context) return null;
     const { executarImportacao, maquinas } = context;
 
@@ -41,7 +41,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
     const processFile = (file: File) => {
         if (!file) return;
-        
+
         const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
         const isCsv = file.name.endsWith('.csv');
 
@@ -52,7 +52,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
         setIsProcessing(true);
         const reader = new FileReader();
-        
+
         reader.onload = (evt) => {
             try {
                 const dataArray = new Uint8Array(evt.target?.result as ArrayBuffer);
@@ -65,9 +65,9 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                 if (data.length > 0) {
                     const header = data[0];
                     serialColIndex = header.findIndex(h => h && h.toString().toLowerCase().includes('serial'));
-                    
+
                     if (serialColIndex === -1) {
-                        for(let r=0; r < Math.min(data.length, 10); r++) {
+                        for (let r = 0; r < Math.min(data.length, 10); r++) {
                             const row = data[r];
                             // Tenta achar qualquer coluna que tenha um padrão de serial (começa com letra/número e tem tamanho)
                             const idx = row.findIndex(c => c && /^[A-Z0-9-]{6,}$/i.test(c.toString().trim()));
@@ -84,7 +84,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                 data.forEach((row, index) => {
                     const rawVal = row[serialColIndex];
                     if (rawVal === undefined || rawVal === null) return;
-                    
+
                     const strVal = rawVal.toString().trim();
                     if (strVal === '' || (index === 0 && strVal.toLowerCase().includes('serial'))) return;
 
@@ -144,7 +144,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
             formData.qtdEsperada ? parseInt(formData.qtdEsperada) : undefined,
             fileData.name,
             fileData.rows,
-            formData.dataPedido, 
+            formData.dataPedido,
             formData.regiao === '' ? undefined : formData.regiao
         );
         setStep(4);
@@ -172,30 +172,30 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                     </div>
                     <div>
                         <label className="block text-sm font-black text-gray-900">Código do Pedido *</label>
-                        <input 
-                            type="text" 
-                            placeholder="Ex: CSG1323..." 
-                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white uppercase focus:border-blue-600 outline-none font-bold text-gray-900" 
+                        <input
+                            type="text"
+                            placeholder="Ex: CSG1323..."
+                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white uppercase focus:border-blue-600 outline-none font-bold text-gray-900"
                             value={formData.codigoPedido}
-                            onChange={e => setFormData({...formData, codigoPedido: e.target.value})}
+                            onChange={e => setFormData({ ...formData, codigoPedido: e.target.value })}
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-black text-gray-900">Data do Pedido (Lote)</label>
-                        <input 
-                            type="date" 
-                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white focus:border-blue-600 outline-none font-bold text-gray-900" 
+                        <input
+                            type="date"
+                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white focus:border-blue-600 outline-none font-bold text-gray-900"
                             value={formData.dataPedido}
-                            onChange={e => setFormData({...formData, dataPedido: e.target.value})}
+                            onChange={e => setFormData({ ...formData, dataPedido: e.target.value })}
                             style={{ colorScheme: 'light' }}
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-black text-gray-900">Região de Atribuição *</label>
-                        <select 
-                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white focus:border-blue-600 outline-none font-bold text-gray-900" 
+                        <select
+                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white focus:border-blue-600 outline-none font-bold text-gray-900"
                             value={formData.regiao}
-                            onChange={e => setFormData({...formData, regiao: e.target.value as Regiao})}
+                            onChange={e => setFormData({ ...formData, regiao: e.target.value as Regiao })}
                         >
                             <option value="">SELECIONE A REGIÃO</option>
                             <option value="SERGIPE">SERGIPE (AJU/SE)</option>
@@ -205,15 +205,15 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                     </div>
                     <div>
                         <label className="block text-sm font-black text-gray-900">Quantidade Esperada (opcional)</label>
-                        <input 
-                            type="number" 
-                            placeholder="Ex: 300" 
-                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white focus:border-blue-600 outline-none font-bold text-gray-900" 
+                        <input
+                            type="number"
+                            placeholder="Ex: 300"
+                            className="mt-2 w-full p-4 border-2 border-gray-200 rounded-xl bg-white focus:border-blue-600 outline-none font-bold text-gray-900"
                             value={formData.qtdEsperada}
-                            onChange={e => setFormData({...formData, qtdEsperada: e.target.value})}
+                            onChange={e => setFormData({ ...formData, qtdEsperada: e.target.value })}
                         />
                     </div>
-                    <button 
+                    <button
                         disabled={!formData.codigoPedido || !formData.regiao}
                         onClick={() => setStep(2)}
                         className="w-full bg-blue-600 text-white py-4 rounded-xl font-black disabled:opacity-50 hover:bg-blue-700 transition shadow-lg"
@@ -225,15 +225,14 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
             {step === 2 && (
                 <div className="space-y-5">
-                    <div 
-                        onDragOver={(e) => {e.preventDefault(); setIsDragging(true);}}
+                    <div
+                        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                         onDragLeave={() => setIsDragging(false)}
-                        onDrop={(e) => {e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if(f) processFile(f);}}
-                        className={`border-4 border-dashed rounded-3xl p-14 text-center transition-all cursor-pointer ${
-                            isDragging 
-                            ? 'border-blue-600 bg-blue-100 scale-[1.03]' 
-                            : 'border-gray-300 bg-gray-50 hover:border-blue-500'
-                        }`}
+                        onDrop={(e) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); }}
+                        className={`border-4 border-dashed rounded-3xl p-14 text-center transition-all cursor-pointer ${isDragging
+                                ? 'border-blue-600 bg-blue-100 scale-[1.03]'
+                                : 'border-gray-300 bg-gray-50 hover:border-blue-500'
+                            }`}
                     >
                         <input type="file" accept=".xlsx, .xls, .csv" className="hidden" id="file-up" onChange={handleFileInputChange} />
                         <label htmlFor="file-up" className="cursor-pointer">
@@ -287,7 +286,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                     </div>
 
                     <div className="max-h-56 overflow-y-auto border-2 border-gray-200 rounded-2xl bg-white shadow-inner">
-                         <table className="w-full text-left text-xs">
+                        <table className="w-full text-left text-xs">
                             <thead className="bg-gray-100 sticky top-0 border-b-2 border-gray-200">
                                 <tr>
                                     <th className="p-4 text-gray-900 font-black uppercase tracking-tighter">Serial Original</th>
@@ -299,17 +298,16 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                                     <tr key={i} className="hover:bg-gray-50">
                                         <td className="p-4 font-mono font-black text-gray-800 text-base">{r.original}</td>
                                         <td className="p-4 text-right">
-                                            <span className={`px-2 py-1 rounded font-black text-[10px] tracking-widest border uppercase ${
-                                                r.status === 'INSERIDO' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
-                                                r.status === 'INVALIDO' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'
-                                            }`}>
+                                            <span className={`px-2 py-1 rounded font-black text-[10px] tracking-widest border uppercase ${r.status === 'INSERIDO' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                                    r.status === 'INVALIDO' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'
+                                                }`}>
                                                 {r.status.replace('_', ' ')}
                                             </span>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
-                         </table>
+                        </table>
                     </div>
 
                     <div className="flex flex-col gap-4">

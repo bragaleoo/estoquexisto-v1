@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useContext } from 'react';
-import { AppContext } from '../App';
-import { CreditCardIcon, FileTextIcon, HistoryIcon } from './ui/Icons';
+import { AppContext } from '../../App';
+import { CreditCardIcon, FileTextIcon, HistoryIcon } from '../ui/Icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts';
 
 type Senioridade = 'Junior' | 'Pleno' | 'Senior';
@@ -95,7 +95,7 @@ const CalculadoraGanhos: React.FC = () => {
         doc.setFontSize(22);
         doc.setFont("helvetica", "bold");
         doc.text("Xisto • Relatório de Projeção", 15, 25);
-        
+
         doc.setFontSize(10);
         doc.text(`SIMULAÇÃO REALIZADA POR: ${userName.toUpperCase()}`, 15, 33);
         doc.text(`DATA: ${dateStr}`, 180, 33, { align: 'right' });
@@ -104,7 +104,7 @@ const CalculadoraGanhos: React.FC = () => {
         doc.setTextColor(15, 23, 42);
         doc.setFontSize(14);
         doc.text("Configuração da Simulação", 15, 55);
-        
+
         doc.autoTable({
             startY: 60,
             head: [['Item', 'Configuração']],
@@ -140,7 +140,7 @@ const CalculadoraGanhos: React.FC = () => {
 
         doc.setFontSize(12);
         doc.text("RESUMO CONSOLIDADO DOS GANHOS", 20, finalY + 12);
-        
+
         doc.setFontSize(10);
         doc.text(`Subtotal Quantidade (V1): R$ ${results.bonusV1}`, 20, finalY + 22);
         doc.text(`Subtotal Performance (V2): R$ ${results.bonusV2_Total}`, 20, finalY + 28);
@@ -179,7 +179,7 @@ const CalculadoraGanhos: React.FC = () => {
                     <p className="text-slate-900 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">Simulação de Performance de Vendas</p>
                 </div>
                 <div className="flex gap-3">
-                    <button 
+                    <button
                         onClick={handleExportPDF}
                         className="bg-slate-950 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-xl border-2 border-slate-900 hover:bg-black transition-all active:scale-95 flex items-center gap-3"
                     >
@@ -193,9 +193,9 @@ const CalculadoraGanhos: React.FC = () => {
                     <label className="block text-[10px] font-black text-slate-950 uppercase tracking-widest">Nível de Senioridade</label>
                     <div className="flex gap-3 p-2 bg-slate-100 rounded-2xl border-2 border-slate-200">
                         {(['Junior', 'Pleno', 'Senior'] as Senioridade[]).map(s => (
-                            <button 
-                                key={s} 
-                                onClick={() => setConfig({...config, senioridade: s})}
+                            <button
+                                key={s}
+                                onClick={() => setConfig({ ...config, senioridade: s })}
                                 className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${config.senioridade === s ? 'bg-blue-700 text-white shadow-xl scale-[1.02]' : 'text-slate-600 hover:bg-slate-200 hover:text-slate-950'}`}
                             >
                                 {s}
@@ -216,8 +216,8 @@ const CalculadoraGanhos: React.FC = () => {
                         <div className="space-y-8">
                             <div>
                                 <label className="block text-xs font-black text-slate-950 uppercase mb-4 tracking-tight">Quantidade Total de Máquinas Instaladas</label>
-                                <input 
-                                    type="number" 
+                                <input
+                                    type="number"
                                     className="w-full p-8 border-2 border-slate-200 rounded-[2rem] font-black text-5xl bg-slate-50 text-blue-800 outline-none focus:border-blue-700 transition-all focus:ring-8 focus:ring-blue-50"
                                     value={v1.vendas_mes}
                                     onChange={e => updateInput(setV1, 'vendas_mes', e.target.value)}
@@ -245,11 +245,11 @@ const CalculadoraGanhos: React.FC = () => {
                             ].map(f => (
                                 <div key={f.id} className="space-y-3">
                                     <label className="block text-[10px] font-black text-slate-950 uppercase tracking-widest">{f.label}</label>
-                                    <input 
-                                        type="number" 
+                                    <input
+                                        type="number"
                                         className={`w-full p-5 border-2 border-slate-200 rounded-2xl font-black text-2xl bg-slate-50 text-slate-900 outline-none focus:border-${f.color}-700 focus:ring-8 focus:ring-${f.color}-50 transition-all`}
-                                        value={f.val} 
-                                        onChange={e => updateInput(setV2, f.id, e.target.value)} 
+                                        value={f.val}
+                                        onChange={e => updateInput(setV2, f.id, e.target.value)}
                                     />
                                 </div>
                             ))}
@@ -280,27 +280,27 @@ const CalculadoraGanhos: React.FC = () => {
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={chartData} margin={{ top: 30, right: 30, left: 0, bottom: 20 }}>
                                     <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        tick={{fontSize: 9, fontWeight: '900', fill: '#0f172a'}} 
-                                        axisLine={false} 
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={{ fontSize: 9, fontWeight: '900', fill: '#0f172a' }}
+                                        axisLine={false}
                                         tickLine={false}
                                         dy={10}
                                     />
-                                    <YAxis 
-                                        tick={{fontSize: 9, fontWeight: '900', fill: '#64748b'}} 
-                                        axisLine={false} 
+                                    <YAxis
+                                        tick={{ fontSize: 9, fontWeight: '900', fill: '#64748b' }}
+                                        axisLine={false}
                                         tickLine={false}
                                     />
-                                    <Tooltip content={<CustomTooltip />} cursor={{fill: '#f1f5f9', radius: 16}} />
+                                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f1f5f9', radius: 16 }} />
                                     <Bar dataKey="value" radius={[14, 14, 0, 0]} barSize={44}>
                                         {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                                        <LabelList 
-                                            dataKey="value" 
-                                            position="top" 
+                                        <LabelList
+                                            dataKey="value"
+                                            position="top"
                                             offset={12}
-                                            style={{ fontSize: '10px', fontWeight: '900', fill: '#0f172a' }} 
-                                            formatter={(v: number) => `R$ ${v}`} 
+                                            style={{ fontSize: '10px', fontWeight: '900', fill: '#0f172a' }}
+                                            formatter={(v: number) => `R$ ${v}`}
                                         />
                                     </Bar>
                                 </BarChart>

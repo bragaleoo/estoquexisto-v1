@@ -1,13 +1,13 @@
 
 import React, { useState, useContext, useMemo, useEffect } from 'react';
-import { AppContext } from '../App';
-import Card from './ui/Card';
-import { CreditCardIcon, CheckCircleIcon, ListIcon, FileTextIcon, ExitIcon } from './ui/Icons';
-import { SUPERVISORES } from '../constants';
+import { AppContext } from '../../App';
+import Card from '../ui/Card';
+import { CreditCardIcon, CheckCircleIcon, ListIcon, FileTextIcon, ExitIcon } from '../ui/Icons';
+import { SUPERVISORES } from '../../constants';
 
 const Relatorios: React.FC = () => {
     const context = useContext(AppContext);
-    
+
     const [filters, setFilters] = useState({
         pedido: '',
         status: '',
@@ -51,8 +51,8 @@ const Relatorios: React.FC = () => {
             const matchDataBaixa = filters.dataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filters.dataBaixa)) : true;
             const matchRegiao = filters.regiao ? regiaoEfetiva === filters.regiao : true;
 
-            return matchPedido && matchStatus && matchSupervisor && matchConsultor && 
-                   matchDataImportacao && matchDataAtribuicao && matchDataBaixa && matchRegiao;
+            return matchPedido && matchStatus && matchSupervisor && matchConsultor &&
+                matchDataImportacao && matchDataAtribuicao && matchDataBaixa && matchRegiao;
         });
     }, [maquinas, filters, currentUser, pedidos]);
 
@@ -111,14 +111,14 @@ const Relatorios: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Lote de Pedido</label>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.pedido} onChange={e => setFilters({...filters, pedido: e.target.value})}>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.pedido} onChange={e => setFilters({ ...filters, pedido: e.target.value })}>
                                 <option value="">TODOS OS LOTES</option>
                                 {pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Status da Máquina</label>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })}>
                                 <option value="">TODOS OS STATUS</option>
                                 <option value="DISPONIVEL">DISPONÍVEL</option>
                                 <option value="ATRIBUIDA">ATRIBUÍDA</option>
@@ -127,30 +127,30 @@ const Relatorios: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região Atual</label>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.regiao} onChange={e => setFilters({...filters, regiao: e.target.value})}><option value="">TODAS AS REGIÕES</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select>
+                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.regiao} onChange={e => setFilters({ ...filters, regiao: e.target.value })}><option value="">TODAS AS REGIÕES</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select>
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Supervisor Resp.</label>
-                            <select disabled={currentUser?.perfil === 'Supervisor'} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" value={filters.supervisor} onChange={e => setFilters({...filters, supervisor: e.target.value})}><option value="">TODOS SUPERVISORES</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select>
+                            <select disabled={currentUser?.perfil === 'Supervisor'} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" value={filters.supervisor} onChange={e => setFilters({ ...filters, supervisor: e.target.value })}><option value="">TODOS SUPERVISORES</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Consultor de Vendas</label>
-                            <input type="text" placeholder="Filtrar nome..." className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase" value={filters.consultor} onChange={e => setFilters({...filters, consultor: e.target.value})} />
+                            <input type="text" placeholder="Filtrar nome..." className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase" value={filters.consultor} onChange={e => setFilters({ ...filters, consultor: e.target.value })} />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Importação</label>
-                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataImportacao} onChange={e => setFilters({...filters, dataImportacao: e.target.value})} style={{ colorScheme: 'light' }} />
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataImportacao} onChange={e => setFilters({ ...filters, dataImportacao: e.target.value })} style={{ colorScheme: 'light' }} />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Atribuição</label>
-                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataAtribuicao} onChange={e => setFilters({...filters, dataAtribuicao: e.target.value})} style={{ colorScheme: 'light' }} />
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataAtribuicao} onChange={e => setFilters({ ...filters, dataAtribuicao: e.target.value })} style={{ colorScheme: 'light' }} />
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Data Baixa</label>
-                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataBaixa} onChange={e => setFilters({...filters, dataBaixa: e.target.value})} style={{ colorScheme: 'light' }} />
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.dataBaixa} onChange={e => setFilters({ ...filters, dataBaixa: e.target.value })} style={{ colorScheme: 'light' }} />
                         </div>
                     </div>
                 </div>
@@ -189,19 +189,17 @@ const Relatorios: React.FC = () => {
                                         <td className="p-6">
                                             <p className="font-black text-blue-800 uppercase text-xs">{pedido?.codigo_pedido}</p>
                                             {regiaoEfetiva && (
-                                                <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[8px] font-black uppercase border ${
-                                                    regiaoEfetiva === 'SERGIPE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                }`}>
+                                                <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[8px] font-black uppercase border ${regiaoEfetiva === 'SERGIPE' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    }`}>
                                                     {regiaoEfetiva}
                                                 </span>
                                             )}
                                         </td>
                                         <td className="p-6">
-                                            <span className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase border-2 tracking-widest ${
-                                                m.status_estoque === 'DISPONIVEL' ? 'text-emerald-950 border-emerald-300 bg-emerald-100' : 
-                                                m.status_estoque === 'ATRIBUIDA' ? 'text-indigo-950 border-indigo-300 bg-indigo-100' : 
-                                                'text-red-950 border-red-300 bg-red-100'
-                                            }`}>{m.status_estoque}</span>
+                                            <span className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase border-2 tracking-widest ${m.status_estoque === 'DISPONIVEL' ? 'text-emerald-950 border-emerald-300 bg-emerald-100' :
+                                                m.status_estoque === 'ATRIBUIDA' ? 'text-indigo-950 border-indigo-300 bg-indigo-100' :
+                                                    'text-red-950 border-red-300 bg-red-100'
+                                                }`}>{m.status_estoque}</span>
                                         </td>
                                         <td className="p-6">
                                             <p className="font-black text-slate-950 text-sm leading-tight">{m.consultor_nome || 'LIVRE'}</p>
@@ -231,15 +229,15 @@ const Relatorios: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
-                
+
                 {totalPages > 1 && (
-                     <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50 print:hidden">
+                    <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50 print:hidden">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Página {currentPage} de {totalPages}</span>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
                             <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
                         </div>
-                     </div>
+                    </div>
                 )}
             </div>
         </div>

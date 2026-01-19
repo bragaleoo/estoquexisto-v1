@@ -1,17 +1,17 @@
 
 import React, { useState, useContext, useMemo, useEffect } from 'react';
-import { AppContext } from '../App';
-import Modal from './ui/Modal';
-import { RefreshCwIcon, FileTextIcon } from './ui/Icons';
-import { SUPERVISORES } from '../constants';
-import { Devolucao } from '../types';
+import { AppContext } from '../../App';
+import Modal from '../ui/Modal';
+import { RefreshCwIcon, FileTextIcon } from '../ui/Icons';
+import { SUPERVISORES } from '../../constants';
+import { Devolucao } from '../../types';
 
 const Devolucoes: React.FC = () => {
     const context = useContext(AppContext);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
     const [selectedDevolucao, setSelectedDevolucao] = useState<Devolucao | null>(null);
-    
+
     const [filterSerial, setFilterSerial] = useState('');
     const [filterSupervisor, setFilterSupervisor] = useState('');
     const [filterConsultor, setFilterConsultor] = useState('');
@@ -58,16 +58,16 @@ const Devolucoes: React.FC = () => {
             const matchSupervisor = filterSupervisor ? d.supervisor_id === parseInt(filterSupervisor) : true;
             const matchConsultor = filterConsultor ? d.consultor_nome.toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
             const matchData = filterData ? d.data_entrega === filterData : true;
-             let matchRegiao = true;
-             if (filterRegiao) {
-                 const sup = SUPERVISORES.find(s => s.id === d.supervisor_id);
-                 if (!sup) matchRegiao = false;
-                 else {
-                     const nome = sup.nome.toUpperCase();
-                     if (filterRegiao === 'SERGIPE') matchRegiao = nome.startsWith('AJU') || nome.startsWith('SE');
-                     else if (filterRegiao === 'ALAGOAS') matchRegiao = nome.startsWith('MAC');
-                 }
-             }
+            let matchRegiao = true;
+            if (filterRegiao) {
+                const sup = SUPERVISORES.find(s => s.id === d.supervisor_id);
+                if (!sup) matchRegiao = false;
+                else {
+                    const nome = sup.nome.toUpperCase();
+                    if (filterRegiao === 'SERGIPE') matchRegiao = nome.startsWith('AJU') || nome.startsWith('SE');
+                    else if (filterRegiao === 'ALAGOAS') matchRegiao = nome.startsWith('MAC');
+                }
+            }
             return matchSerial && matchSupervisor && matchConsultor && matchData && matchRegiao;
         });
     }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao]);
@@ -200,24 +200,24 @@ const Devolucoes: React.FC = () => {
                 </div>
 
                 {totalPages > 1 && (
-                     <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50">
+                    <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50">
                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{paginatedItems.length} de {filteredItems.length} registros</span>
                         <div className="flex gap-2">
                             <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
                             <div className="px-4 py-2 bg-slate-200 rounded-xl font-black text-[10px] flex items-center">{currentPage} / {totalPages}</div>
                             <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
                         </div>
-                     </div>
+                    </div>
                 )}
             </div>
 
             <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Novo Registro de Entrega">
                 <div className="space-y-4">
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Serial da Máquina *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="DIGITE O SERIAL" value={formData.serial} onChange={e => setFormData({...formData, serial: e.target.value})} /></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}><option value="">SELECIONE...</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="NOME DO CONSULTOR" value={formData.consultor} onChange={e => setFormData({...formData, consultor: e.target.value})} /></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Data da Entrega *</label><input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={formData.dataEntrega} onChange={e => setFormData({...formData, dataEntrega: e.target.value})} style={{ colorScheme: 'light' }} /></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES DO DEFEITO..." value={formData.observacaoInicial} onChange={e => setFormData({...formData, observacaoInicial: e.target.value})} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Serial da Máquina *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="DIGITE O SERIAL" value={formData.serial} onChange={e => setFormData({ ...formData, serial: e.target.value })} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({ ...formData, supervisor: e.target.value })}><option value="">SELECIONE...</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="NOME DO CONSULTOR" value={formData.consultor} onChange={e => setFormData({ ...formData, consultor: e.target.value })} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Data da Entrega *</label><input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={formData.dataEntrega} onChange={e => setFormData({ ...formData, dataEntrega: e.target.value })} style={{ colorScheme: 'light' }} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES DO DEFEITO..." value={formData.observacaoInicial} onChange={e => setFormData({ ...formData, observacaoInicial: e.target.value })} /></div>
                     <button onClick={handleCreateSubmit} className="w-full bg-slate-950 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl mt-2 hover:bg-black transition">Registrar Entrada</button>
                 </div>
             </Modal>
@@ -225,9 +225,9 @@ const Devolucoes: React.FC = () => {
             <Modal isOpen={isShippingModalOpen} onClose={() => setIsShippingModalOpen(false)} title="Informar Envio aos Correios">
                 <div className="space-y-4">
                     <div className="p-4 bg-slate-100 rounded-xl"><p className="text-[10px] font-black text-slate-500 uppercase">Máquina</p><p className="text-base font-black text-slate-900">{selectedDevolucao?.serial}</p></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Data do Envio *</label><input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={shippingData.dataEnvioCorreios} onChange={e => setShippingData({...shippingData, dataEnvioCorreios: e.target.value})} style={{ colorScheme: 'light' }} /></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Código de Rastreio *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="EX: AA123456789BR" value={shippingData.codigoRastreio} onChange={e => setShippingData({...shippingData, codigoRastreio: e.target.value})} /></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações do Envio</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES ADICIONAIS..." value={shippingData.observacaoEnvio} onChange={e => setShippingData({...shippingData, observacaoEnvio: e.target.value})} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Data do Envio *</label><input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={shippingData.dataEnvioCorreios} onChange={e => setShippingData({ ...shippingData, dataEnvioCorreios: e.target.value })} style={{ colorScheme: 'light' }} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Código de Rastreio *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="EX: AA123456789BR" value={shippingData.codigoRastreio} onChange={e => setShippingData({ ...shippingData, codigoRastreio: e.target.value })} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações do Envio</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES ADICIONAIS..." value={shippingData.observacaoEnvio} onChange={e => setShippingData({ ...shippingData, observacaoEnvio: e.target.value })} /></div>
                     <button onClick={handleShippingSubmit} className="w-full bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl mt-2 hover:bg-blue-800 transition">Confirmar Envio</button>
                 </div>
             </Modal>
