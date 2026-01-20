@@ -16,6 +16,7 @@ interface AppContextType {
   loading: boolean;
   isSyncing: boolean;
   executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => Promise<void>;
+  registrarMaquinaManual: (serial: string, loteCode: string, regiao?: Regiao) => Promise<void>;
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => Promise<void>;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => Promise<void>;
   baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => Promise<void>;
@@ -102,7 +103,7 @@ const App: React.FC = () => {
   const executarImportacao = async (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
     setIsSyncing(true);
     const importId = crypto.randomUUID();
-    let pedidoExistente = pedidos.find(p => p.codigo_pedido === codigoPedido);
+    let pedidoExistente = pedidos.find(p => p.codigo_pedido.toUpperCase() === codigoPedido.toUpperCase());
     const pedidoId = pedidoExistente ? pedidoExistente.id : crypto.randomUUID();
     const dataBase = dataPedido ? new Date(dataPedido + 'T12:00:00').toISOString() : new Date().toISOString();
 
@@ -120,7 +121,7 @@ const App: React.FC = () => {
     });
 
     if (!pedidoExistente) {
-      await supabase.from('pedidos').insert({ id: pedidoId, codigo_pedido: codigoPedido, qtd_esperada: qtdEsperada, qtd_importada: novasMaquinas.length, status_importacao: (qtdEsperada && novasMaquinas.length >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL', regiao, criado_em: dataBase, criado_por: currentUser?.nome || 'Sistema' });
+      await supabase.from('pedidos').insert({ id: pedidoId, codigo_pedido: codigoPedido.toUpperCase(), qtd_esperada: qtdEsperada, qtd_importada: novasMaquinas.length, status_importacao: (qtdEsperada && novasMaquinas.length >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL', regiao, criado_em: dataBase, criado_por: currentUser?.nome || 'Sistema' });
     } else {
       await supabase.from('pedidos').update({ qtd_importada: pedidoExistente.qtd_importada + novasMaquinas.length, status_importacao: (qtdEsperada && (pedidoExistente.qtd_importada + novasMaquinas.length) >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL' }).eq('id', pedidoId);
     }
@@ -130,6 +131,56 @@ const App: React.FC = () => {
       supabase.from('maquinas').insert(novasMaquinas),
       supabase.from('importacao_itens').insert(novosLogs),
       supabase.from('eventos_maquina').insert(novosEventos)
+    ]);
+    triggerRefresh();
+  };
+
+  const registrarMaquinaManual = async (serial: string, loteCode: string, regiao?: Regiao) => {
+    setIsSyncing(true);
+    const mId = crypto.randomUUID();
+    const timestamp = new Date().toISOString();
+    
+    // Busca ou cria o pedido pelo código
+    let pedido = pedidos.find(p => p.codigo_pedido.toUpperCase() === loteCode.toUpperCase());
+    let pedidoId: string;
+
+    if (!pedido) {
+      pedidoId = crypto.randomUUID();
+      await supabase.from('pedidos').insert({ 
+        id: pedidoId, 
+        codigo_pedido: loteCode.toUpperCase(), 
+        qtd_importada: 1, 
+        status_importacao: 'PARCIAL', 
+        regiao, 
+        criado_em: timestamp, 
+        criado_por: currentUser?.nome || 'Sistema' 
+      });
+    } else {
+      pedidoId = pedido.id;
+      const novaQtd = (pedido.qtd_importada || 0) + 1;
+      await supabase.from('pedidos').update({ 
+        qtd_importada: novaQtd, 
+        status_importacao: (pedido.qtd_esperada && novaQtd >= pedido.qtd_esperada) ? 'COMPLETA' : 'PARCIAL' 
+      }).eq('id', pedidoId);
+    }
+
+    await Promise.all([
+      supabase.from('maquinas').insert({ 
+        id: mId, 
+        serial, 
+        pedido_id: pedidoId, 
+        status_estoque: 'DISPONIVEL', 
+        criado_em: timestamp, 
+        regiao 
+      }),
+      supabase.from('eventos_maquina').insert({ 
+        id: crypto.randomUUID(), 
+        maquina_id: mId, 
+        tipo_evento: 'IMPORTADA', 
+        criado_em: timestamp, 
+        criado_por: currentUser?.nome || 'Sistema', 
+        payload: { manual: true, after: { status: 'DISPONIVEL', loteCode, regiao } } 
+      })
     ]);
     triggerRefresh();
   };
@@ -203,7 +254,7 @@ const App: React.FC = () => {
 
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing,
-    executarImportacao, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, login: handleLogin, logout: handleLogout,
+    executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, login: handleLogin, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
   return (

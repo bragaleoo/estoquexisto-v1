@@ -3,13 +3,14 @@ import React, { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../App';
 import Modal from './ui/Modal';
 import ImportWizard from './ImportWizard';
-import { FileTextIcon, EditIcon, RefreshCwIcon } from './ui/Icons';
+import { FileTextIcon, EditIcon, RefreshCwIcon, CreditCardIcon } from './ui/Icons';
 import { SUPERVISORES } from '../constants';
 import { MotivoBaixa, Maquina, Regiao, StatusEstoque } from '../types';
 
 const Cadastros: React.FC = () => {
     const context = useContext(AppContext);
     const [isImportModalOpen, setImportModalOpen] = useState(false);
+    const [isManualModalOpen, setManualModalOpen] = useState(false);
     
     const [filterPedido, setFilterPedido] = useState('');
     const [filterSerial, setFilterSerial] = useState('');
@@ -36,14 +37,20 @@ const Cadastros: React.FC = () => {
         novaRegiao: '' as Regiao | ''
     });
 
+    const [manualData, setManualData] = useState({
+        serial: '',
+        loteCode: '',
+        regiao: '' as Regiao | ''
+    });
+
     const [editingMachine, setEditingMachine] = useState<Maquina | null>(null);
     const [editData, setEditData] = useState({ supervisor: '', consultor: '', regiao: '' as Regiao | '' });
 
     if (!context) return null;
-    const { pedidos, maquinas, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser } = context;
+    const { pedidos, maquinas, registrarMaquinaManual, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
 
-    // Lista única de consultores para o Datalist (Estilo buscador dinâmico)
+    // Lista única de consultores para o Datalist
     const listaConsultores = useMemo(() => {
         const nomes = maquinas
             .map(m => m.consultor_nome)
@@ -51,10 +58,15 @@ const Cadastros: React.FC = () => {
         return Array.from(new Set(nomes)).sort();
     }, [maquinas]);
 
+    // Lista única de códigos de pedidos para o Datalist do modal manual
+    const listaPedidos = useMemo(() => {
+        return pedidos.map(p => p.codigo_pedido).sort();
+    }, [pedidos]);
+
     useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
     useEffect(() => { 
         setFilterStatus(''); 
-        setFilterDataBaixa(''); // Limpa filtro de baixa ao mudar aba
+        setFilterDataBaixa('');
     }, [showBaixadas]);
 
     const getSupervisorRegion = (supervisorName: string): Regiao | null => {
@@ -172,6 +184,17 @@ const Cadastros: React.FC = () => {
         setBatchData({ supervisor: '', consultor: '', motivo: 'VENDA', obs: '', dataBaixa: new Date().toISOString().split('T')[0], novaRegiao: '' });
     };
 
+    const handleManualSubmit = async () => {
+        if (!manualData.serial || !manualData.loteCode) return alert("Serial e Lote são obrigatórios.");
+        
+        const normSerial = manualData.serial.trim().toUpperCase();
+        if (maquinas.some(m => m.serial === normSerial)) return alert("Este serial já está cadastrado no sistema.");
+
+        await registrarMaquinaManual(normSerial, manualData.loteCode.trim().toUpperCase(), manualData.regiao || undefined);
+        setManualModalOpen(false);
+        setManualData({ serial: '', loteCode: '', regiao: '' });
+    };
+
     const openEditModal = (e: React.MouseEvent, m: Maquina) => {
         e.stopPropagation();
         const pedido = pedidos.find(p => p.id === m.pedido_id);
@@ -209,7 +232,7 @@ const Cadastros: React.FC = () => {
                     </p>
                 </div>
                 {!isSupervisor && (
-                    <div className="flex gap-4">
+                    <div className="flex flex-wrap justify-end gap-3">
                         {selectedIds.length > 0 && (
                             <>
                                 <button onClick={() => setBatchAction('atribuir')} className="bg-indigo-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-indigo-900 transition animate-fadeIn">Distribuir ({selectedIds.length})</button>
@@ -222,8 +245,11 @@ const Cadastros: React.FC = () => {
                                 )}
                             </>
                         )}
-                        <button onClick={handleExportExcel} className="bg-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-emerald-800 transition flex items-center gap-2 font-black uppercase text-xs">Exportar Excel</button>
-                        <button onClick={() => setImportModalOpen(true)} className="bg-blue-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-blue-800 transition flex items-center gap-2 font-black uppercase text-xs">
+                        <button onClick={handleExportExcel} className="bg-emerald-700 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-emerald-800 transition flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">Exportar Excel</button>
+                        <button onClick={() => setManualModalOpen(true)} className="bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-slate-900 transition flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
+                            <CreditCardIcon className="w-5 h-5" /> Novo Registro
+                        </button>
+                        <button onClick={() => setImportModalOpen(true)} className="bg-blue-700 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-blue-800 transition flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
                             <FileTextIcon className="w-5 h-5" /> Importar Lote
                         </button>
                     </div>
@@ -341,6 +367,53 @@ const Cadastros: React.FC = () => {
             
             <Modal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} title="Importar Novo Lote">
                 <ImportWizard onSuccess={() => setImportModalOpen(false)} />
+            </Modal>
+
+            <Modal isOpen={isManualModalOpen} onClose={() => setManualModalOpen(false)} title="Novo Registro Manual">
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Número de Serial *</label>
+                        <input 
+                            type="text" 
+                            className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
+                            placeholder="DIGITE O SERIAL" 
+                            value={manualData.serial} 
+                            onChange={e => setManualData({...manualData, serial: e.target.value})} 
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Lote / Pedido Relacionado *</label>
+                        <input 
+                            type="text" 
+                            list="manual-lotes-list"
+                            className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
+                            placeholder="DIGITE OU SELECIONE UM LOTE..." 
+                            value={manualData.loteCode} 
+                            onChange={e => setManualData({...manualData, loteCode: e.target.value})}
+                        />
+                        <datalist id="manual-lotes-list">
+                            {listaPedidos.map(code => <option key={code} value={code} />)}
+                        </datalist>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Região Operacional (Opcional)</label>
+                        <select 
+                            className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" 
+                            value={manualData.regiao} 
+                            onChange={e => setManualData({...manualData, regiao: e.target.value as Regiao})}
+                        >
+                            <option value="">MESMA DO LOTE (SE EXISTIR)</option>
+                            <option value="SERGIPE">SERGIPE (AJU / SE)</option>
+                            <option value="ALAGOAS">ALAGOAS (MAC)</option>
+                        </select>
+                    </div>
+                    <button 
+                        onClick={handleManualSubmit} 
+                        className="w-full bg-slate-950 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl hover:bg-black transition-all mt-4"
+                    >
+                        Registrar no Estoque
+                    </button>
+                </div>
             </Modal>
 
             <Modal isOpen={!!batchAction} onClose={() => setBatchAction(null)} title={batchAction === 'atribuir' ? "Atribuição em Lote" : batchAction === 'baixar' ? "Baixa em Lote" : batchAction === 'regiao' ? "Mudar Região em Lote" : "Disponibilizar em Lote"}>
