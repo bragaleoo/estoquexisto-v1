@@ -44,7 +44,7 @@ const Devolucoes: React.FC = () => {
         const nomes = devolucoes
             .map(d => d.consultor_nome)
             .filter((nome): nome is string => !!nome && nome.trim() !== '');
-        return Array.from(new Set(nomes)).sort();
+        return Array.from(new Set(nomes)).sort((a: string, b: string) => a.localeCompare(b));
     }, [devolucoes]);
 
     useEffect(() => {
@@ -164,7 +164,7 @@ const Devolucoes: React.FC = () => {
 
             <div className="bg-white rounded-3xl shadow-sm border-2 border-slate-200 overflow-hidden">
                 <div className="p-6 bg-slate-50 border-b-2 border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value)} /></div>
+                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value.toUpperCase())} /></div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label><select disabled={isSupervisor} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600 disabled:opacity-50" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                     <div>
@@ -175,7 +175,7 @@ const Devolucoes: React.FC = () => {
                             placeholder="BUSCAR OU ESCREVER..."
                             className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" 
                             value={filterConsultor} 
-                            onChange={e => setFilterConsultor(e.target.value)} 
+                            onChange={e => setFilterConsultor(e.target.value.toUpperCase())} 
                         />
                         <datalist id="devolucoes-consultor-list">
                             {listaConsultores.map(nome => <option key={nome} value={nome} />)}
@@ -221,12 +221,28 @@ const Devolucoes: React.FC = () => {
                 </div>
 
                 {totalPages > 1 && (
-                     <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{paginatedItems.length} de {filteredItems.length} registros</span>
-                        <div className="flex gap-2">
-                            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
-                            <div className="px-4 py-2 bg-slate-200 rounded-xl font-black text-[10px] flex items-center">{currentPage} / {totalPages}</div>
-                            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
+                     <div className="p-6 border-t-2 border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-100/50">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">{filteredItems.length} REGISTROS</span>
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => { setCurrentPage(prev => Math.max(prev - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                                disabled={currentPage === 1} 
+                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
+                            >
+                                Anterior
+                            </button>
+                            
+                            <div className="bg-white border-2 border-slate-200 px-5 py-2.5 rounded-xl font-black text-sm text-slate-950 shadow-sm">
+                                {currentPage} / {totalPages}
+                            </div>
+
+                            <button 
+                                onClick={() => { setCurrentPage(prev => Math.min(prev + 1, totalPages)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                                disabled={currentPage === totalPages} 
+                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
+                            >
+                                Próxima
+                            </button>
                         </div>
                      </div>
                 )}
@@ -234,7 +250,7 @@ const Devolucoes: React.FC = () => {
 
             <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Novo Registro de Entrega">
                 <div className="space-y-4">
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Serial da Máquina *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="DIGITE O SERIAL" value={formData.serial} onChange={e => setFormData({...formData, serial: e.target.value})} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Serial da Máquina *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="DIGITE O SERIAL" value={formData.serial} onChange={e => setFormData({...formData, serial: e.target.value.toUpperCase()})} /></div>
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}><option value="">SELECIONE...</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>
@@ -244,7 +260,7 @@ const Devolucoes: React.FC = () => {
                             className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
                             placeholder="NOME DO CONSULTOR" 
                             value={formData.consultor} 
-                            onChange={e => setFormData({...formData, consultor: e.target.value})} 
+                            onChange={e => setFormData({...formData, consultor: e.target.value.toUpperCase()})} 
                         />
                         <datalist id="new-devolucao-consultor-list">
                             {listaConsultores.map(nome => <option key={nome} value={nome} />)}
@@ -260,7 +276,7 @@ const Devolucoes: React.FC = () => {
                 <div className="space-y-4">
                     <div className="p-4 bg-slate-100 rounded-xl"><p className="text-[10px] font-black text-slate-500 uppercase">Máquina</p><p className="text-base font-black text-slate-900">{selectedDevolucao?.serial}</p></div>
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Data do Envio *</label><input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={shippingData.dataEnvioCorreios} onChange={e => setShippingData({...shippingData, dataEnvioCorreios: e.target.value})} style={{ colorScheme: 'light' }} /></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Código de Rastreio *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="EX: AA123456789BR" value={shippingData.codigoRastreio} onChange={e => setShippingData({...shippingData, codigoRastreio: e.target.value})} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Código de Rastreio *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="EX: AA123456789BR" value={shippingData.codigoRastreio} onChange={e => setShippingData({...shippingData, codigoRastreio: e.target.value.toUpperCase()})} /></div>
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações do Envio</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES ADICIONAIS..." value={shippingData.observacaoEnvio} onChange={e => setShippingData({...shippingData, observacaoEnvio: e.target.value})} /></div>
                     <button onClick={handleShippingSubmit} className="w-full bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl mt-2 hover:bg-blue-800 transition">Confirmar Envio</button>
                 </div>

@@ -30,7 +30,7 @@ const Relatorios: React.FC = () => {
         const nomes = maquinas
             .map(m => m.consultor_nome)
             .filter((nome): nome is string => !!nome && nome.trim() !== '');
-        return Array.from(new Set(nomes)).sort();
+        return Array.from(new Set(nomes)).sort((a: string, b: string) => a.localeCompare(b));
     }, [maquinas]);
 
     useEffect(() => {
@@ -152,7 +152,7 @@ const Relatorios: React.FC = () => {
                                 placeholder="BUSCAR OU ESCREVER..."
                                 className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 uppercase" 
                                 value={filters.consultor} 
-                                onChange={e => setFilters({...filters, consultor: e.target.value})} 
+                                onChange={e => setFilters({...filters, consultor: e.target.value.toUpperCase()})} 
                             />
                             <datalist id="relatorios-consultor-list">
                                 {listaConsultores.map(nome => <option key={nome} value={nome} />)}
@@ -251,11 +251,28 @@ const Relatorios: React.FC = () => {
                 </div>
                 
                 {totalPages > 1 && (
-                     <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50 print:hidden">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Página {currentPage} de {totalPages}</span>
-                        <div className="flex gap-2">
-                            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
-                            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
+                     <div className="p-6 border-t-2 border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-100/50 print:hidden">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">PÁGINA {currentPage} DE {totalPages}</span>
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => { setCurrentPage(prev => Math.max(prev - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                                disabled={currentPage === 1} 
+                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
+                            >
+                                Anterior
+                            </button>
+                            
+                            <div className="bg-white px-5 py-2.5 rounded-xl border-2 border-slate-200 shadow-sm font-black text-sm text-slate-950">
+                                {currentPage} / {totalPages}
+                            </div>
+
+                            <button 
+                                onClick={() => { setCurrentPage(prev => Math.min(prev + 1, totalPages)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                                disabled={currentPage === totalPages} 
+                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed active:scale-95"
+                            >
+                                Próxima
+                            </button>
                         </div>
                      </div>
                 )}

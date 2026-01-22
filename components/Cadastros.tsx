@@ -50,17 +50,15 @@ const Cadastros: React.FC = () => {
     const { pedidos, maquinas, registrarMaquinaManual, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
 
-    // Lista única de consultores para o Datalist
     const listaConsultores = useMemo(() => {
         const nomes = maquinas
             .map(m => m.consultor_nome)
             .filter((nome): nome is string => !!nome && nome.trim() !== '');
-        return Array.from(new Set(nomes)).sort();
+        return Array.from(new Set(nomes)).sort((a: string, b: string) => a.localeCompare(b));
     }, [maquinas]);
 
-    // Lista única de códigos de pedidos para o Datalist do modal manual
     const listaPedidos = useMemo(() => {
-        return pedidos.map(p => p.codigo_pedido).sort();
+        return pedidos.map(p => p.codigo_pedido).sort((a: string, b: string) => a.localeCompare(b));
     }, [pedidos]);
 
     useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
@@ -170,7 +168,7 @@ const Cadastros: React.FC = () => {
             const supervisorId = parseInt(batchData.supervisor);
             if (!supervisorId) return alert("Selecione a operação.");
             if (checkRegionConflict(selectedIds, supervisorId)) return;
-            await atribuirEmLote(selectedIds, supervisorId, batchData.consultor.toUpperCase());
+            await atribuirEmLote(selectedIds, supervisorId, batchData.consultor.trim().toUpperCase());
         } else if (batchAction === 'baixar') {
             await baixarEmLote(selectedIds, batchData.motivo, batchData.obs, batchData.dataBaixa);
         } else if (batchAction === 'disponibilizar') {
@@ -211,7 +209,7 @@ const Cadastros: React.FC = () => {
         const supervisorId = parseInt(editData.supervisor);
         if (!supervisorId) return alert("A operação é obrigatória.");
         if (checkRegionConflict([editingMachine.id], supervisorId, editData.regiao as Regiao)) return;
-        await atualizarMaquina(editingMachine.id, supervisorId, editData.consultor.toUpperCase(), editData.regiao as Regiao);
+        await atualizarMaquina(editingMachine.id, supervisorId, editData.consultor.trim().toUpperCase(), editData.regiao as Regiao);
         setEditingMachine(null);
     };
 
@@ -269,8 +267,8 @@ const Cadastros: React.FC = () => {
                         </div>
                     </div>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-8">
-                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Pedido</label><input type="text" placeholder="CÓDIGO..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterPedido} onChange={e => setFilterPedido(e.target.value)} /></div>
-                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value)} /></div>
+                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Pedido</label><input type="text" placeholder="CÓDIGO..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterPedido} onChange={e => setFilterPedido(e.target.value.toUpperCase())} /></div>
+                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value.toUpperCase())} /></div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Data Imp.</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterDataImportacao} onChange={e => setFilterDataImportacao(e.target.value)} /></div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Data Atrib.</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterDataAtribuicao} onChange={e => setFilterDataAtribuicao(e.target.value)} /></div>
                         {showBaixadas && (
@@ -296,7 +294,7 @@ const Cadastros: React.FC = () => {
                                 placeholder="BUSCAR..." 
                                 className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" 
                                 value={filterConsultor} 
-                                onChange={e => setFilterConsultor(e.target.value)} 
+                                onChange={e => setFilterConsultor(e.target.value.toUpperCase())} 
                             />
                             <datalist id="cadastros-consultores-list">
                                 {listaConsultores.map(nome => <option key={nome} value={nome} />)}
@@ -354,12 +352,30 @@ const Cadastros: React.FC = () => {
                 </div>
 
                 {totalPages > 1 && (
-                     <div className="p-6 border-t-2 border-slate-200 flex justify-between items-center bg-slate-50">
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{paginatedInventory.length} de {filteredInventory.length} registros</span>
-                        <div className="flex gap-2">
-                            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Anterior</button>
-                            <div className="px-4 py-2 bg-slate-200 rounded-xl font-black text-[10px] flex items-center">{currentPage} / {totalPages}</div>
-                            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl font-black text-[10px] uppercase disabled:opacity-50">Próxima</button>
+                     <div className="p-6 border-t-2 border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-100/50">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">{filteredInventory.length} REGISTROS TOTAIS</span>
+                        <div className="flex items-center gap-4">
+                            <button 
+                                onClick={() => { setCurrentPage(prev => Math.max(prev - 1, 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                                disabled={currentPage === 1} 
+                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                Anterior
+                            </button>
+                            
+                            <div className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-xl border-2 border-slate-200 shadow-sm">
+                                <span className="text-[12px] font-black text-slate-950">{currentPage}</span>
+                                <span className="text-slate-300 font-bold text-xs">/</span>
+                                <span className="text-[12px] font-black text-slate-400">{totalPages}</span>
+                            </div>
+
+                            <button 
+                                onClick={() => { setCurrentPage(prev => Math.min(prev + 1, totalPages)); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                                disabled={currentPage === totalPages} 
+                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                                Próxima
+                            </button>
                         </div>
                      </div>
                 )}
@@ -378,7 +394,7 @@ const Cadastros: React.FC = () => {
                             className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
                             placeholder="DIGITE O SERIAL" 
                             value={manualData.serial} 
-                            onChange={e => setManualData({...manualData, serial: e.target.value})} 
+                            onChange={e => setManualData({...manualData, serial: e.target.value.toUpperCase()})} 
                         />
                     </div>
                     <div>
@@ -389,7 +405,7 @@ const Cadastros: React.FC = () => {
                             className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
                             placeholder="DIGITE OU SELECIONE UM LOTE..." 
                             value={manualData.loteCode} 
-                            onChange={e => setManualData({...manualData, loteCode: e.target.value})}
+                            onChange={e => setManualData({...manualData, loteCode: e.target.value.toUpperCase()})}
                         />
                         <datalist id="manual-lotes-list">
                             {listaPedidos.map(code => <option key={code} value={code} />)}
@@ -404,7 +420,7 @@ const Cadastros: React.FC = () => {
                         >
                             <option value="">MESMA DO LOTE (SE EXISTIR)</option>
                             <option value="SERGIPE">SERGIPE (AJU / SE)</option>
-                            <option value="ALAGOAS">ALAGOAS (MAC)</option>
+                            <option value="ALAGOAS (MAC)">ALAGOAS (MAC)</option>
                         </select>
                     </div>
                     <button 
@@ -431,7 +447,7 @@ const Cadastros: React.FC = () => {
                                 placeholder="NOME DO CONSULTOR (OPCIONAL)" 
                                 className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
                                 value={batchData.consultor} 
-                                onChange={e => setBatchData({...batchData, consultor: e.target.value})} 
+                                onChange={e => setBatchData({...batchData, consultor: e.target.value.toUpperCase()})} 
                             />
                             <datalist id="batch-consultor-list">
                                 {listaConsultores.map(nome => <option key={nome} value={nome} />)}
@@ -451,7 +467,7 @@ const Cadastros: React.FC = () => {
                             <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.novaRegiao} onChange={e => setBatchData({...batchData, novaRegiao: e.target.value as Regiao})}>
                                 <option value="">SELECIONE...</option>
                                 <option value="SERGIPE">SERGIPE (AJU / SE)</option>
-                                <option value="ALAGOAS">ALAGOAS (MAC)</option>
+                                <option value="ALAGOAS (MAC)">ALAGOAS (MAC)</option>
                             </select>
                         </>
                     ) : (
@@ -488,7 +504,7 @@ const Cadastros: React.FC = () => {
                             list="edit-consultor-list"
                             className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" 
                             value={editData.consultor} 
-                            onChange={e => setEditData({...editData, consultor: e.target.value})} 
+                            onChange={e => setEditData({...editData, consultor: e.target.value.toUpperCase()})} 
                         />
                         <datalist id="edit-consultor-list">
                             {listaConsultores.map(nome => <option key={nome} value={nome} />)}
