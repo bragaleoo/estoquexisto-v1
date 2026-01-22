@@ -19,11 +19,12 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
         const u = username.toLowerCase();
         const p = password;
 
-        // Validação rigorosa conforme a lista fornecida
         if (u === 'admxisto' && p === '794613@') {
             onLogin({ perfil: 'Administrador', nome: 'Administrador Xisto' });
         } else if (u === 'estoquexisto' && p === '316497@') {
             onLogin({ perfil: 'Estoquista', nome: 'Estoquista Central' });
+        } else if (u === 'estoquealxisto' && p === '753951@') {
+            onLogin({ perfil: 'Estoquista', nome: 'Estoquista Alagoas', regiao: 'ALAGOAS' });
         } else if (u === 'aju01' && p === '134679@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor AJU 01', supervisorId: 1 });
         } else if (u === 'aju02' && p === '123654@') {
@@ -65,7 +66,7 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
                     <input 
                         type="text" 
                         required
-                        placeholder="Ex: admxisto"
+                        placeholder="Ex: estoquealxisto"
                         className="w-full p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-950 outline-none focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-300 text-lg"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}

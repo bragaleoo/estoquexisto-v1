@@ -38,14 +38,22 @@ const Devolucoes: React.FC = () => {
     if (!context) return null;
     const { devolucoes, registrarDevolucao, atualizarEnvioDevolucao, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
+    const hasFixedRegiao = !!currentUser?.regiao;
 
-    // Lista única de consultores para o buscador inteligente
     const listaConsultores = useMemo(() => {
         const nomes = devolucoes
+            .filter(d => {
+                if (!hasFixedRegiao) return true;
+                const sup = SUPERVISORES.find(s => s.id === d.supervisor_id);
+                if (!sup) return false;
+                if (currentUser.regiao === 'SERGIPE') return sup.nome.startsWith('AJU') || sup.nome.startsWith('SE');
+                if (currentUser.regiao === 'ALAGOAS') return sup.nome.startsWith('MAC');
+                return true;
+            })
             .map(d => d.consultor_nome)
             .filter((nome): nome is string => !!nome && nome.trim() !== '');
         return Array.from(new Set(nomes)).sort((a: string, b: string) => a.localeCompare(b));
-    }, [devolucoes]);
+    }, [devolucoes, hasFixedRegiao, currentUser]);
 
     useEffect(() => {
         if (isSupervisor && currentUser.supervisorId) {
@@ -61,6 +69,18 @@ const Devolucoes: React.FC = () => {
         if (isSupervisor) {
             list = list.filter(d => d.supervisor_id === currentUser?.supervisorId);
         }
+        
+        // Filtro Regional Baseado no Supervisor
+        if (hasFixedRegiao) {
+            list = list.filter(d => {
+                const sup = SUPERVISORES.find(s => s.id === d.supervisor_id);
+                if (!sup) return false;
+                if (currentUser.regiao === 'SERGIPE') return sup.nome.startsWith('AJU') || sup.nome.startsWith('SE');
+                if (currentUser.regiao === 'ALAGOAS') return sup.nome.startsWith('MAC');
+                return true;
+            });
+        }
+
         return list.filter(d => {
             const matchSerial = filterSerial ? d.serial.toUpperCase().includes(filterSerial.trim().toUpperCase()) : true;
             const matchSupervisor = filterSupervisor ? d.supervisor_id === parseInt(filterSupervisor) : true;
@@ -78,7 +98,7 @@ const Devolucoes: React.FC = () => {
              }
             return matchSerial && matchSupervisor && matchConsultor && matchData && matchRegiao;
         });
-    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao]);
+    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao, hasFixedRegiao]);
 
     const paginatedItems = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -153,7 +173,7 @@ const Devolucoes: React.FC = () => {
         <div className="p-4 md:p-8 space-y-8 bg-slate-50 min-h-screen">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestão de Devoluções</h1>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Gestão de Devoluções {currentUser?.regiao ? `(${currentUser.regiao})` : ''}</h1>
                     <p className="text-slate-900 font-black uppercase text-[10px] tracking-widest">Controle de recebimento e envio de ativos defeituosos.</p>
                 </div>
                 <div className="flex gap-4">
@@ -165,8 +185,13 @@ const Devolucoes: React.FC = () => {
             <div className="bg-white rounded-3xl shadow-sm border-2 border-slate-200 overflow-hidden">
                 <div className="p-6 bg-slate-50 border-b-2 border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value.toUpperCase())} /></div>
-                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
-                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label><select disabled={isSupervisor} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600 disabled:opacity-50" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label><select disabled={hasFixedRegiao} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={hasFixedRegiao ? currentUser.regiao : filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
+                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label><select disabled={isSupervisor} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600 disabled:opacity-50" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.filter(s => {
+                        if (!hasFixedRegiao) return true;
+                        if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE');
+                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('MAC');
+                        return true;
+                    }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                     <div>
                         <label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Consultor</label>
                         <input 
@@ -251,7 +276,12 @@ const Devolucoes: React.FC = () => {
             <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Novo Registro de Entrega">
                 <div className="space-y-4">
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Serial da Máquina *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="DIGITE O SERIAL" value={formData.serial} onChange={e => setFormData({...formData, serial: e.target.value.toUpperCase()})} /></div>
-                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}><option value="">SELECIONE...</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}><option value="">SELECIONE...</option>{SUPERVISORES.filter(s => {
+                        if (!hasFixedRegiao) return true;
+                        if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE');
+                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('MAC');
+                        return true;
+                    }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                     <div>
                         <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>
                         <input 

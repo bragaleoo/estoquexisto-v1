@@ -89,6 +89,7 @@ export interface UserProfile {
   perfil: Perfil;
   supervisorId?: number;
   nome: string;
+  regiao?: Regiao;
 }
 
 export interface Supervisor {
