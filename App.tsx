@@ -103,33 +103,100 @@ const App: React.FC = () => {
   const executarImportacao = async (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
     setIsSyncing(true);
     try {
+        // 1. Checagem de segurança em tempo real para evitar race conditions
+        const { data: latestMachines } = await supabase.from('maquinas').select('serial');
+        const existingSerials = new Set(latestMachines?.map(m => m.serial) || []);
+
         const importId = crypto.randomUUID();
         let pedidoExistente = pedidos.find(p => p.codigo_pedido.toUpperCase() === codigoPedido.toUpperCase());
         const pedidoId = pedidoExistente ? pedidoExistente.id : crypto.randomUUID();
         const dataBase = dataPedido ? new Date(dataPedido + 'T12:00:00').toISOString() : new Date().toISOString();
 
-        const novasMaquinas: Maquina[] = [];
+        const maquinasParaInserir: Maquina[] = [];
         const novosLogs: ImportacaoItem[] = [];
         const novosEventos: EventoMaquina[] = [];
 
         processados.forEach(item => {
-        novosLogs.push({ id: crypto.randomUUID(), import_id: importId, linha_numero: item.linha, serial_original: item.original, serial_normalizado: item.normalizado, status_item: item.status, erro_motivo: item.motivo });
-        if (item.status === 'INSERIDO') {
-            const mId = crypto.randomUUID();
-            novasMaquinas.push({ id: mId, serial: item.normalizado, pedido_id: pedidoId, import_id: importId, status_estoque: 'DISPONIVEL', criado_em: dataBase, regiao });
-            novosEventos.push({ id: crypto.randomUUID(), maquina_id: mId, tipo_evento: 'IMPORTADA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido, regiao } } });
-        }
+            let itemStatus = item.status;
+            let itemMotivo = item.motivo;
+
+            // Se o sistema marcou como novo, mas o banco acabou de dizer que já existe
+            if (itemStatus === 'INSERIDO' && existingSerials.has(item.normalizado)) {
+                itemStatus = 'DUPLICADO_SISTEMA';
+                itemMotivo = 'Detectado duplicidade em tempo real no banco';
+            }
+
+            novosLogs.push({ 
+                id: crypto.randomUUID(), 
+                import_id: importId, 
+                linha_numero: item.linha, 
+                serial_original: item.original, 
+                serial_normalizado: item.normalizado, 
+                status_item: itemStatus, 
+                erro_motivo: itemMotivo 
+            });
+
+            if (itemStatus === 'INSERIDO') {
+                const mId = crypto.randomUUID();
+                maquinasParaInserir.push({ 
+                    id: mId, 
+                    serial: item.normalizado, 
+                    pedido_id: pedidoId, 
+                    import_id: importId, 
+                    status_estoque: 'DISPONIVEL', 
+                    criado_em: dataBase, 
+                    regiao 
+                });
+                novosEventos.push({ 
+                    id: crypto.randomUUID(), 
+                    maquina_id: mId, 
+                    tipo_evento: 'IMPORTADA', 
+                    criado_em: new Date().toISOString(), 
+                    criado_por: currentUser?.nome || 'Sistema', 
+                    payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido, regiao } } 
+                });
+            }
         });
 
-        if (!pedidoExistente) {
-        await supabase.from('pedidos').insert({ id: pedidoId, codigo_pedido: codigoPedido.toUpperCase(), qtd_esperada: qtdEsperada, qtd_importada: novasMaquinas.length, status_importacao: (qtdEsperada && novasMaquinas.length >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL', regiao, criado_em: dataBase, criado_por: currentUser?.nome || 'Sistema' });
-        } else {
-        await supabase.from('pedidos').update({ qtd_importada: pedidoExistente.qtd_importada + novasMaquinas.length, status_importacao: (qtdEsperada && (pedidoExistente.qtd_importada + novasMaquinas.length) >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL' }).eq('id', pedidoId);
+        // Se não sobrou nada novo após a checagem real, apenas registramos o log da importação
+        if (maquinasParaInserir.length === 0 && processados.length > 0) {
+            console.warn("Nenhum serial novo restou após checagem em tempo real.");
         }
 
+        // Criar ou atualizar pedido
+        if (!pedidoExistente) {
+            await supabase.from('pedidos').insert({ 
+                id: pedidoId, 
+                codigo_pedido: codigoPedido.toUpperCase(), 
+                qtd_esperada: qtdEsperada, 
+                qtd_importada: maquinasParaInserir.length, 
+                status_importacao: (qtdEsperada && maquinasParaInserir.length >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL', 
+                regiao, 
+                criado_em: dataBase, 
+                criado_por: currentUser?.nome || 'Sistema' 
+            });
+        } else {
+            await supabase.from('pedidos').update({ 
+                qtd_importada: pedidoExistente.qtd_importada + maquinasParaInserir.length, 
+                status_importacao: (qtdEsperada && (pedidoExistente.qtd_importada + maquinasParaInserir.length) >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL' 
+            }).eq('id', pedidoId);
+        }
+
+        // Executar os inserts em lote
         const promessas = [
-            supabase.from('importacoes').insert({ id: importId, pedido_id: pedidoId, arquivo_nome: arquivoNome, importado_em: new Date().toISOString(), importado_por: currentUser?.nome || 'Sistema', total_linhas_lidas: processados.length, seriais_validos: processados.filter(i => i.status !== 'INVALIDO').length, invalidos: processados.filter(i => i.status === 'INVALIDO').length, maquinas_inseridas: novasMaquinas.length, status: 'PROCESSADA' }),
-            novasMaquinas.length > 0 ? supabase.from('maquinas').insert(novasMaquinas) : Promise.resolve({ error: null }),
+            supabase.from('importacoes').insert({ 
+                id: importId, 
+                pedido_id: pedidoId, 
+                arquivo_nome: arquivoNome, 
+                importado_em: new Date().toISOString(), 
+                importado_por: currentUser?.nome || 'Sistema', 
+                total_linhas_lidas: processados.length, 
+                seriais_validos: processados.filter(i => i.status !== 'INVALIDO').length, 
+                invalidos: processados.filter(i => i.status === 'INVALIDO').length, 
+                maquinas_inseridas: maquinasParaInserir.length, 
+                status: 'PROCESSADA' 
+            }),
+            maquinasParaInserir.length > 0 ? supabase.from('maquinas').insert(maquinasParaInserir) : Promise.resolve({ error: null }),
             novosLogs.length > 0 ? supabase.from('importacao_itens').insert(novosLogs) : Promise.resolve({ error: null }),
             novosEventos.length > 0 ? supabase.from('eventos_maquina').insert(novosEventos) : Promise.resolve({ error: null })
         ];
