@@ -24,28 +24,50 @@ const Relatorios: React.FC = () => {
 
     if (!context) return null;
     const { maquinas, pedidos, currentUser } = context;
+    const hasFixedRegiao = !!currentUser?.regiao;
 
-    // Lista única de consultores para o buscador
+    // Lista única de consultores para o buscador, respeitando a região do usuário
     const listaConsultores = useMemo(() => {
         const nomes = maquinas
+            .filter(m => {
+                if (!hasFixedRegiao) return true;
+                const pedido = pedidos.find(p => p.id === m.pedido_id);
+                const regiaoEfetiva = m.regiao || pedido?.regiao;
+                return regiaoEfetiva === currentUser.regiao;
+            })
             .map(m => m.consultor_nome)
             .filter((nome): nome is string => !!nome && nome.trim() !== '');
         return Array.from(new Set(nomes)).sort((a: string, b: string) => a.localeCompare(b));
-    }, [maquinas]);
+    }, [maquinas, pedidos, currentUser, hasFixedRegiao]);
 
     useEffect(() => {
         if (currentUser?.perfil === 'Supervisor' && currentUser.supervisorId) {
             setFilters(prev => ({ ...prev, supervisor: currentUser.supervisorId?.toString() || '' }));
         }
-    }, [currentUser]);
+        if (hasFixedRegiao) {
+            setFilters(prev => ({ ...prev, regiao: currentUser.regiao as string }));
+        }
+    }, [currentUser, hasFixedRegiao]);
 
     useEffect(() => { setCurrentPage(1); }, [filters]);
 
     const maquinasFiltradas = useMemo(() => {
         let result = maquinas;
+
+        // Trava de perfil Supervisor
         if (currentUser?.perfil === 'Supervisor') {
             result = result.filter(m => m.supervisor_id === currentUser.supervisorId);
         }
+
+        // Trava Regional (Estoquista de AL só vê AL, etc)
+        if (hasFixedRegiao) {
+            result = result.filter(m => {
+                const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
+                const regiaoEfetiva = m.regiao || pedidoRelacionado?.regiao;
+                return regiaoEfetiva === currentUser.regiao;
+            });
+        }
+
         return result.filter(m => {
             const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
             const regiaoEfetiva = m.regiao || pedidoRelacionado?.regiao;
@@ -62,7 +84,7 @@ const Relatorios: React.FC = () => {
             return matchPedido && matchStatus && matchSupervisor && matchConsultor && 
                    matchDataImportacao && matchDataAtribuicao && matchDataBaixa && matchRegiao;
         });
-    }, [maquinas, filters, currentUser, pedidos]);
+    }, [maquinas, filters, currentUser, pedidos, hasFixedRegiao]);
 
     const handleExportExcel = () => {
         if (maquinasFiltradas.length === 0) return alert("Não há dados para exportar com os filtros atuais.");
@@ -121,7 +143,7 @@ const Relatorios: React.FC = () => {
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Lote de Pedido</label>
                             <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.pedido} onChange={e => setFilters({...filters, pedido: e.target.value})}>
                                 <option value="">TODOS OS LOTES</option>
-                                {pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido}</option>)}
+                                {pedidos.filter(p => !hasFixedRegiao || p.regiao === currentUser.regiao).map(p => <option key={p.id} value={p.id}>{p.codigo_pedido}</option>)}
                             </select>
                         </div>
                         <div>
@@ -135,11 +157,23 @@ const Relatorios: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Região Atual</label>
-                            <select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700" value={filters.regiao} onChange={e => setFilters({...filters, regiao: e.target.value})}><option value="">TODAS AS REGIÕES</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select>
+                            <select disabled={hasFixedRegiao} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" value={filters.regiao} onChange={e => setFilters({...filters, regiao: e.target.value})}>
+                                <option value="">TODAS AS REGIÕES</option>
+                                <option value="SERGIPE">SERGIPE</option>
+                                <option value="ALAGOAS">ALAGOAS</option>
+                            </select>
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-slate-950 uppercase mb-3 tracking-widest">Supervisor Resp.</label>
-                            <select disabled={currentUser?.perfil === 'Supervisor'} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" value={filters.supervisor} onChange={e => setFilters({...filters, supervisor: e.target.value})}><option value="">TODOS SUPERVISORES</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select>
+                            <select disabled={currentUser?.perfil === 'Supervisor'} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50 text-slate-950 outline-none focus:border-blue-700 disabled:opacity-50" value={filters.supervisor} onChange={e => setFilters({...filters, supervisor: e.target.value})}>
+                                <option value="">TODOS SUPERVISORES</option>
+                                {SUPERVISORES.filter(s => {
+                                    if (!hasFixedRegiao) return true;
+                                    if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE');
+                                    if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('MAC');
+                                    return true;
+                                }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                            </select>
                         </div>
                     </div>
 

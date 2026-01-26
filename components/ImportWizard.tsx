@@ -22,6 +22,7 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
     });
     const [fileData, setFileData] = useState<{ name: string, rows: ProcessedRow[] } | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     
     if (!context) return null;
@@ -29,13 +30,10 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
 
     const normalize = (val: any) => {
         if (val === undefined || val === null) return '';
-        // Remove caracteres invisíveis, espaços e garante uppercase
         return val.toString().trim().toUpperCase().replace(/[\u200B-\u200D\uFEFF]/g, '');
     };
 
     const validate = (val: string) => {
-        // Aceita NCC, NCB, A910 (com ou sem hífen) e outros padrões comuns
-        // Permite letras, números e hifens, com tamanho mínimo de 6 caracteres
         return /^[A-Z0-9-]+$/.test(val) && val.length >= 6;
     };
 
@@ -69,7 +67,6 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                     if (serialColIndex === -1) {
                         for(let r=0; r < Math.min(data.length, 10); r++) {
                             const row = data[r];
-                            // Tenta achar qualquer coluna que tenha um padrão de serial (começa com letra/número e tem tamanho)
                             const idx = row.findIndex(c => c && /^[A-Z0-9-]{6,}$/i.test(c.toString().trim()));
                             if (idx !== -1) { serialColIndex = idx; break; }
                         }
@@ -137,17 +134,25 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
         if (file) processFile(file);
     };
 
-    const confirmImport = () => {
+    const confirmImport = async () => {
         if (!fileData) return;
-        executarImportacao(
-            formData.codigoPedido.toUpperCase(),
-            formData.qtdEsperada ? parseInt(formData.qtdEsperada) : undefined,
-            fileData.name,
-            fileData.rows,
-            formData.dataPedido, 
-            formData.regiao === '' ? undefined : formData.regiao
-        );
-        setStep(4);
+        setIsUploading(true);
+        try {
+            await executarImportacao(
+                formData.codigoPedido.toUpperCase(),
+                formData.qtdEsperada ? parseInt(formData.qtdEsperada) : undefined,
+                fileData.name,
+                fileData.rows,
+                formData.dataPedido, 
+                formData.regiao === '' ? undefined : formData.regiao
+            );
+            setStep(4);
+        } catch (error) {
+            console.error("Falha na importação:", error);
+            alert("Ocorreu um erro ao salvar os dados no banco. Verifique se há seriais duplicados que não foram detectados localmente.");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     return (
@@ -313,10 +318,19 @@ const ImportWizard: React.FC<{ onSuccess: () => void }> = ({ onSuccess }) => {
                     </div>
 
                     <div className="flex flex-col gap-4">
-                        <button onClick={confirmImport} className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-lg shadow-xl hover:bg-blue-700 transition">
-                            Processar Lote Agora
+                        <button 
+                            disabled={isUploading}
+                            onClick={confirmImport} 
+                            className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-lg shadow-xl hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-3"
+                        >
+                            {isUploading ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    PROCESSANDO...
+                                </>
+                            ) : "Processar Lote Agora"}
                         </button>
-                        <button onClick={() => setStep(2)} className="w-full text-gray-800 font-black text-sm uppercase tracking-wider hover:underline">Trocar arquivo</button>
+                        <button disabled={isUploading} onClick={() => setStep(2)} className="w-full text-gray-800 font-black text-sm uppercase tracking-wider hover:underline disabled:opacity-30">Trocar arquivo</button>
                     </div>
                 </div>
             )}
