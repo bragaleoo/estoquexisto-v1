@@ -15,6 +15,7 @@ interface AppContextType {
   devolucoes: Devolucao[];
   loading: boolean;
   isSyncing: boolean;
+  triggerRefresh: () => void;
   executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => Promise<void>;
   registrarMaquinaManual: (serial: string, loteCode: string, regiao?: Regiao) => Promise<void>;
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => Promise<void>;
@@ -50,40 +51,37 @@ const App: React.FC = () => {
   const [eventos, setEventos] = useState<EventoMaquina[]>([]);
   const [devolucoes, setDevolucoes] = useState<Devolucao[]>([]);
 
+  const fetchData = async () => {
+    if (refreshTrigger === 0) setLoading(true);
+    setIsSyncing(true);
+
+    try {
+      // Buscamos tudo do banco de dados de uma vez
+      const [pRes, mRes, iRes, itRes, eRes, dRes] = await Promise.all([
+        supabase.from('pedidos').select('*').order('criado_em', { ascending: false }),
+        supabase.from('maquinas').select('*').order('criado_em', { ascending: false }),
+        supabase.from('importacoes').select('*').order('importado_em', { ascending: false }),
+        supabase.from('importacao_itens').select('*'),
+        supabase.from('eventos_maquina').select('*').order('criado_em', { ascending: false }),
+        supabase.from('devolucoes').select('*').order('criado_em', { ascending: false })
+      ]);
+
+      if (pRes.data) setPedidos(pRes.data);
+      if (mRes.data) setMaquinas(mRes.data);
+      if (iRes.data) setImportacoes(iRes.data);
+      if (itRes.data) setImportacaoItens(itRes.data);
+      if (eRes.data) setEventos(eRes.data);
+      if (dRes.data) setDevolucoes(dRes.data);
+
+    } catch (err) {
+      console.error("Erro ao sincronizar com o banco:", err);
+    } finally {
+      setLoading(false);
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      if (refreshTrigger === 0) setLoading(true);
-      else setIsSyncing(true);
-
-      try {
-        const results = await Promise.allSettled([
-          supabase.from('pedidos').select('*').order('criado_em', { ascending: false }),
-          supabase.from('maquinas').select('*').order('criado_em', { ascending: false }),
-          supabase.from('importacoes').select('*').order('importado_em', { ascending: false }),
-          supabase.from('importacao_itens').select('*'),
-          supabase.from('eventos_maquina').select('*').order('criado_em', { ascending: false }),
-          supabase.from('devolucoes').select('*').order('criado_em', { ascending: false })
-        ]);
-
-        results.forEach((res, index) => {
-            if (res.status === 'fulfilled' && res.value.data) {
-                const data = res.value.data;
-                if (index === 0) setPedidos(data);
-                if (index === 1) setMaquinas(data);
-                if (index === 2) setImportacoes(data);
-                if (index === 3) setImportacaoItens(data);
-                if (index === 4) setEventos(data);
-                if (index === 5) setDevolucoes(data);
-            }
-        });
-      } catch (err) {
-        console.error("Erro ao sincronizar:", err);
-      } finally {
-        setLoading(false);
-        setIsSyncing(false);
-      }
-    };
-
     if (currentUser) fetchData();
     else setLoading(false);
   }, [refreshTrigger, currentUser]);
@@ -103,26 +101,19 @@ const App: React.FC = () => {
   const executarImportacao = async (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
     setIsSyncing(true);
     try {
-        // 1. Identificar seriais do arquivo
         const batchSerials = processados.map(p => p.normalizado);
-        
-        // 2. Busca cirúrgica no banco para detectar duplicados (Independente do tamanho do banco)
-        const { data: dbMatches } = await supabase
-            .from('maquinas')
-            .select('serial')
-            .in('serial', batchSerials);
-            
-        const dbExistingSerials = new Set(dbMatches?.map(m => m.serial) || []);
+        const { data: dbMatches } = await supabase.from('maquinas').select('id, serial').in('serial', batchSerials);
+        const dbMap = new Map<string, string>();
+        dbMatches?.forEach(m => dbMap.set(m.serial, m.id));
 
         const importId = crypto.randomUUID();
         const dataBase = dataPedido ? new Date(dataPedido + 'T12:00:00').toISOString() : new Date().toISOString();
 
-        // 3. Gerenciar o Pedido (Lote) - GERANDO ID MANUAL PARA EVITAR ERRO DE CONSTRAINT
         const tempPedidoId = crypto.randomUUID();
         const { data: pedidoData, error: pError } = await supabase
             .from('pedidos')
             .upsert({ 
-                id: tempPedidoId, // Enviando ID gerado manualmente para prevenir o erro do banco
+                id: tempPedidoId,
                 codigo_pedido: codigoPedido.toUpperCase(), 
                 qtd_esperada: qtdEsperada, 
                 regiao, 
@@ -131,107 +122,51 @@ const App: React.FC = () => {
             .select()
             .single();
 
-        if (pError || !pedidoData) throw new Error("Erro ao preparar lote no banco: " + (pError?.message || 'Sem dados de retorno'));
-        
+        if (pError || !pedidoData) throw new Error("Erro no Pedido: " + pError?.message);
         const pedidoId = pedidoData.id;
 
-        const maquinasParaInserir: Maquina[] = [];
-        const novosLogs: ImportacaoItem[] = [];
-        const novosEventos: EventoMaquina[] = [];
+        const maquinasParaSalvar: any[] = [];
+        const novosEventos: any[] = [];
 
         processados.forEach(item => {
-            let itemStatus = item.status;
-            let itemMotivo = item.motivo;
-
-            // Se o arquivo achava que era novo, mas o banco confirmou que já existe
-            if (itemStatus === 'INSERIDO' && dbExistingSerials.has(item.normalizado)) {
-                itemStatus = 'DUPLICADO_SISTEMA';
-                itemMotivo = 'Serial já existente no banco de dados';
-            }
-
-            novosLogs.push({ 
-                id: crypto.randomUUID(), 
-                import_id: importId, 
-                linha_numero: item.linha, 
-                serial_original: item.original, 
-                serial_normalizado: item.normalizado, 
-                status_item: itemStatus, 
-                erro_motivo: itemMotivo 
-            });
-
-            // SÓ ADICIONA PARA INSERIR SE FOR REALMENTE INÉDITO (AQUI ESTÃO AS 60)
-            if (itemStatus === 'INSERIDO') {
-                const mId = crypto.randomUUID();
-                maquinasParaInserir.push({ 
+            if (item.status === 'INSERIDO' || item.status === 'DUPLICADO_SISTEMA') {
+                const mId = dbMap.get(item.normalizado) || crypto.randomUUID();
+                maquinasParaSalvar.push({ 
                     id: mId, 
                     serial: item.normalizado, 
                     pedido_id: pedidoId, 
                     import_id: importId, 
                     status_estoque: 'DISPONIVEL', 
                     criado_em: dataBase, 
-                    regiao 
+                    regiao,
+                    supervisor_id: null,
+                    consultor_nome: null,
+                    atribuido_em: null,
+                    baixado_em: null
                 });
                 novosEventos.push({ 
                     id: crypto.randomUUID(), 
                     maquina_id: mId, 
-                    tipo_evento: 'IMPORTADA', 
+                    tipo_evento: dbMap.has(item.normalizado) ? 'EDICAO' : 'IMPORTADA', 
                     criado_em: new Date().toISOString(), 
                     criado_por: currentUser?.nome || 'Sistema', 
-                    payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido, regiao } } 
+                    payload: { after: { status: 'DISPONIVEL', pedido: codigoPedido } } 
                 });
             }
         });
 
-        // 4. Salvar a Importação e os Logs
-        await supabase.from('importacoes').insert({ 
-            id: importId, 
-            pedido_id: pedidoId, 
-            arquivo_nome: arquivoNome, 
-            importado_em: new Date().toISOString(), 
-            importado_por: currentUser?.nome || 'Sistema', 
-            total_linhas_lidas: processados.length, 
-            seriais_validos: processados.filter(i => i.status !== 'INVALIDO').length, 
-            invalidos: processados.filter(i => i.status === 'INVALIDO').length, 
-            maquinas_inseridas: maquinasParaInserir.length, 
-            status: 'PROCESSADA' 
-        });
-
-        if (novosLogs.length > 0) {
-            await supabase.from('importacao_itens').insert(novosLogs);
-        }
-
-        // 5. INSERIR MÁQUINAS (A parte das 60 inéditas)
-        if (maquinasParaInserir.length > 0) {
-            const { error: mError } = await supabase
-                .from('maquinas')
-                .upsert(maquinasParaInserir, { onConflict: 'serial', ignoreDuplicates: true });
-            
-            if (mError) {
-                console.error("Erro ao inserir máquinas inéditas:", mError);
-                throw mError;
-            }
-            
+        if (maquinasParaSalvar.length > 0) {
+            await supabase.from('maquinas').upsert(maquinasParaSalvar, { onConflict: 'serial' });
             await supabase.from('eventos_maquina').insert(novosEventos);
         }
 
-        // 6. Atualizar contagem real do lote após a inserção
-        const { data: countData } = await supabase
-            .from('maquinas')
-            .select('id')
-            .eq('pedido_id', pedidoId);
-        
-        const totalRealNoBanco = countData?.length || 0;
-        
-        await supabase.from('pedidos')
-            .update({ 
-                qtd_importada: totalRealNoBanco, 
-                status_importacao: (qtdEsperada && totalRealNoBanco >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL' 
-            })
-            .eq('id', pedidoId);
+        // Recalcula total real
+        const { count } = await supabase.from('maquinas').select('*', { count: 'exact', head: true }).eq('pedido_id', pedidoId);
+        await supabase.from('pedidos').update({ qtd_importada: count || 0 }).eq('id', pedidoId);
 
         triggerRefresh();
     } catch (err) {
-        console.error("ERRO CRÍTICO NA GRAVAÇÃO:", err);
+        console.error("Erro grave:", err);
         throw err;
     } finally {
         setIsSyncing(false);
@@ -240,80 +175,53 @@ const App: React.FC = () => {
 
   const registrarMaquinaManual = async (serial: string, loteCode: string, regiao?: Regiao) => {
     setIsSyncing(true);
-    const mId = crypto.randomUUID();
-    const timestamp = new Date().toISOString();
-    
     let pedido = pedidos.find(p => p.codigo_pedido.toUpperCase() === loteCode.toUpperCase());
-    let pedidoId: string;
+    let pedidoId = pedido?.id;
 
-    if (!pedido) {
-      pedidoId = crypto.randomUUID();
-      await supabase.from('pedidos').insert({ id: pedidoId, codigo_pedido: loteCode.toUpperCase(), qtd_importada: 1, status_importacao: 'PARCIAL', regiao, criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema' });
-    } else {
-      pedidoId = pedido.id;
-      const novaQtd = (pedido.qtd_importada || 0) + 1;
-      await supabase.from('pedidos').update({ qtd_importada: novaQtd, status_importacao: (pedido.qtd_esperada && novaQtd >= pedido.qtd_esperada) ? 'COMPLETA' : 'PARCIAL' }).eq('id', pedidoId);
+    if (!pedidoId) {
+      const { data: nP } = await supabase.from('pedidos').insert({ id: crypto.randomUUID(), codigo_pedido: loteCode.toUpperCase(), regiao, criado_por: currentUser?.nome || 'Sistema' }).select().single();
+      pedidoId = nP?.id;
     }
 
-    await Promise.all([
-      supabase.from('maquinas').insert({ id: mId, serial, pedido_id: pedidoId, status_estoque: 'DISPONIVEL', criado_em: timestamp, regiao }),
-      supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: mId, tipo_evento: 'IMPORTADA', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { manual: true, after: { status: 'DISPONIVEL', loteCode, regiao } } })
-    ]);
+    await supabase.from('maquinas').upsert({ serial: serial.toUpperCase(), pedido_id: pedidoId, status_estoque: 'DISPONIVEL', regiao }, { onConflict: 'serial' });
     triggerRefresh();
   };
 
   const atribuirEmLote = async (maquinaIds: string[], supervisorId: number, consultorNome: string) => {
     setIsSyncing(true);
-    const timestamp = new Date().toISOString();
-    await supabase.from('maquinas').update({ status_estoque: 'ATRIBUIDA', supervisor_id: supervisorId, consultor_nome: consultorNome, atribuido_em: timestamp }).in('id', maquinaIds);
-    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'ATRIBUICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'ATRIBUIDA', supervisor: supervisorId, consultor: consultorNome } } }));
-    await supabase.from('eventos_maquina').insert(novosEventos);
+    await supabase.from('maquinas').update({ status_estoque: 'ATRIBUIDA', supervisor_id: supervisorId, consultor_nome: consultorNome, atribuido_em: new Date().toISOString() }).in('id', maquinaIds);
     triggerRefresh();
   };
 
   const atualizarMaquina = async (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => {
     setIsSyncing(true);
-    const timestamp = new Date().toISOString();
-    const novoStatus: StatusEstoque = supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL';
-    await supabase.from('maquinas').update({ supervisor_id: supervisorId, consultor_nome: consultorNome, status_estoque: novoStatus, regiao: novaRegiao }).eq('id', maquinaId);
-    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { supervisor: supervisorId, consultor: consultorNome, regiao: novaRegiao } } });
+    const status: StatusEstoque = supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL';
+    await supabase.from('maquinas').update({ supervisor_id: supervisorId, consultor_nome: consultorNome, status_estoque: status, regiao: novaRegiao }).eq('id', maquinaId);
     triggerRefresh();
   };
 
   const baixarEmLote = async (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => {
     setIsSyncing(true);
-    const timestamp = dataBaixa ? new Date(dataBaixa + 'T12:00:00').toISOString() : new Date().toISOString();
-    await supabase.from('maquinas').update({ status_estoque: 'BAIXADA', motivo_baixa: motivo, observacao_baixa: observacao, baixado_em: timestamp, baixado_por: currentUser?.nome || 'Sistema' }).in('id', maquinaIds);
-    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'BAIXA', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'BAIXADA', motivo, observacao } } }));
-    await supabase.from('eventos_maquina').insert(novosEventos);
+    const ts = dataBaixa ? new Date(dataBaixa + 'T12:00:00').toISOString() : new Date().toISOString();
+    await supabase.from('maquinas').update({ status_estoque: 'BAIXADA', motivo_baixa: motivo, observacao_baixa: observacao, baixado_em: ts, baixado_por: currentUser?.nome || 'Sistema' }).in('id', maquinaIds);
     triggerRefresh();
   };
 
   const disponibilizarEmLote = async (maquinaIds: string[]) => {
     setIsSyncing(true);
-    const timestamp = new Date().toISOString();
     await supabase.from('maquinas').update({ status_estoque: 'DISPONIVEL', supervisor_id: null, consultor_nome: null, atribuido_em: null }).in('id', maquinaIds);
-    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'DISPONIVEL' } } }));
-    await supabase.from('eventos_maquina').insert(novosEventos);
     triggerRefresh();
   };
 
   const alterarRegiaoEmLote = async (maquinaIds: string[], novaRegiao: Regiao) => {
     setIsSyncing(true);
-    const timestamp = new Date().toISOString();
     await supabase.from('maquinas').update({ regiao: novaRegiao }).in('id', maquinaIds);
-    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { regiao: novaRegiao } } }));
-    await supabase.from('eventos_maquina').insert(novosEventos);
     triggerRefresh();
   };
 
   const desfazerBaixa = async (maquinaId: string, justificativa: string) => {
     setIsSyncing(true);
-    const machine = maquinas.find(m => m.id === maquinaId);
-    if (!machine) return;
-    const novoStatus: StatusEstoque = machine.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL';
-    await supabase.from('maquinas').update({ status_estoque: novoStatus, motivo_baixa: null, observacao_baixa: null, baixado_em: null, baixado_por: null }).eq('id', maquinaId);
-    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'DESFAZER_BAIXA', criado_em: new Date().toISOString(), criado_por: currentUser?.nome || 'Sistema', justificativa, payload: { after: { status: novoStatus } } });
+    await supabase.from('maquinas').update({ status_estoque: 'DISPONIVEL', motivo_baixa: null, observacao_baixa: null, baixado_em: null }).eq('id', maquinaId);
     triggerRefresh();
   };
 
@@ -330,7 +238,7 @@ const App: React.FC = () => {
   };
 
   const contextValue = useMemo(() => ({
-    currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing,
+    currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing, triggerRefresh,
     executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, login: handleLogin, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
