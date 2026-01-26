@@ -65,7 +65,7 @@ const Layout: React.FC = () => {
   }, [page]);
 
   if (!context) return null;
-  const { logout, loading, isSyncing, triggerRefresh } = context;
+  const { logout, loading, isSyncing } = context;
 
   const renderPage = () => {
     if (loading) {
@@ -119,15 +119,12 @@ const Layout: React.FC = () => {
             ))}
         </nav>
         <div className="p-4 mt-auto border-t-2 border-gray-50">
-          <button 
-            onClick={triggerRefresh}
-            disabled={isSyncing}
-            className={`flex items-center w-full px-4 py-3 mb-2 text-left text-blue-800 font-black text-[11px] uppercase tracking-widest rounded-lg transition-all ${isSyncing ? 'bg-blue-50 opacity-50' : 'bg-blue-50 hover:bg-blue-100'}`}
-          >
-            <RefreshCwIcon className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span className="ml-3">{isSyncing ? 'Sincronizando...' : 'Sincronizar Banco'}</span>
-          </button>
-
+          {isSyncing && (
+             <div className="flex items-center justify-center gap-2 mb-4 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg animate-pulse">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                <span className="text-[9px] font-black uppercase tracking-widest">Sincronizando Dados...</span>
+             </div>
+          )}
           <button onClick={logout} className="flex items-center w-full px-4 py-3 text-left text-gray-700 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors duration-200">
             <LogoutIcon className="w-5 h-5" />
             <span className="ml-3">Sair da conta</span>
@@ -157,16 +154,11 @@ const Layout: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="md:hidden flex justify-between items-center bg-white p-4 border-b-2 border-gray-100 shadow-sm">
             <XistoLogo variant="full" />
-            <div className="flex items-center gap-2">
-                <button onClick={triggerRefresh} className="p-2 text-blue-700">
-                    <RefreshCwIcon className={`w-6 h-6 ${isSyncing ? 'animate-spin' : ''}`} />
-                </button>
-                <button onClick={() => setSidebarOpen(true)} className="text-gray-800 p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16m-7 6h7" />
-                    </svg>
-                </button>
-            </div>
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-800 p-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+          </button>
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50">
