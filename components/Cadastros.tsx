@@ -3,9 +3,12 @@ import React, { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../App';
 import Modal from './ui/Modal';
 import ImportWizard from './ImportWizard';
-import { FileTextIcon, EditIcon, RefreshCwIcon, CreditCardIcon } from './ui/Icons';
+import { FileTextIcon, EditIcon, RefreshCwIcon, CreditCardIcon, ChevronDownIcon } from './ui/Icons';
 import { SUPERVISORES } from '../constants';
 import { MotivoBaixa, Maquina, Regiao, StatusEstoque } from '../types';
+
+type SortField = 'responsavel' | 'serial' | 'data' | 'lote' | 'status' | null;
+type SortDirection = 'asc' | 'desc';
 
 const Cadastros: React.FC = () => {
     const context = useContext(AppContext);
@@ -21,6 +24,10 @@ const Cadastros: React.FC = () => {
     const [filterOp, setFilterOp] = useState('');
     const [filterConsultor, setFilterConsultor] = useState('');
     const [filterRegiao, setFilterRegiao] = useState(''); 
+
+    // Estados para Ordenação
+    const [sortField, setSortField] = useState<SortField>(null);
+    const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
     const [showBaixadas, setShowBaixadas] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -82,13 +89,21 @@ const Cadastros: React.FC = () => {
         return null;
     };
 
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
     const filteredInventory = useMemo(() => {
         let list = [...maquinas];
         if (isSupervisor) {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
         }
         
-        // Se o estoquista é regional, filtra apenas o inventário dele
         if (hasFixedRegiao) {
             list = list.filter(m => {
                 const p = pedidos.find(pd => pd.id === m.pedido_id);
@@ -122,12 +137,39 @@ const Cadastros: React.FC = () => {
         };
 
         return filtered.sort((a, b) => {
+            // Se houver campo de ordenação ativa
+            if (sortField) {
+                let valA: any = '';
+                let valB: any = '';
+
+                if (sortField === 'responsavel') {
+                    valA = a.consultor_nome || 'ZZZ'; // Joga para o fim se vazio
+                    valB = b.consultor_nome || 'ZZZ';
+                    const comp = valA.localeCompare(valB);
+                    return sortDirection === 'asc' ? comp : -comp;
+                }
+                
+                if (sortField === 'serial') {
+                    valA = a.serial;
+                    valB = b.serial;
+                    const comp = valA.localeCompare(valB);
+                    return sortDirection === 'asc' ? comp : -comp;
+                }
+
+                if (sortField === 'status') {
+                    valA = statusWeight[a.status_estoque] ?? 99;
+                    valB = statusWeight[b.status_estoque] ?? 99;
+                    return sortDirection === 'asc' ? valA - valB : valB - valA;
+                }
+            }
+
+            // Fallback para ordenação padrão por status e data
             const weightA = statusWeight[a.status_estoque] ?? 99;
             const weightB = statusWeight[b.status_estoque] ?? 99;
             if (weightA !== weightB) return weightA - weightB;
             return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime();
         });
-    }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao, hasFixedRegiao]);
+    }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao, hasFixedRegiao, sortField, sortDirection]);
 
     const handleExportExcel = () => {
         if (filteredInventory.length === 0) return alert("Não há ativos para exportar.");
@@ -238,6 +280,11 @@ const Cadastros: React.FC = () => {
         }
     };
 
+    const SortIndicator = ({ field }: { field: SortField }) => {
+        if (sortField !== field) return <ChevronDownIcon className="w-3 h-3 ml-1 opacity-20" />;
+        return <ChevronDownIcon className={`w-3 h-3 ml-1 transition-transform ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />;
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-8 bg-slate-50 min-h-screen">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -334,11 +381,20 @@ const Cadastros: React.FC = () => {
                             <tr>
                                 {!isSupervisor && <th className="p-5 w-10 text-center"><input type="checkbox" onChange={e => setSelectedIds(e.target.checked ? paginatedInventory.map(m => m.id) : [])} checked={paginatedInventory.length > 0 && selectedIds.length >= paginatedInventory.length} /></th>}
                                 <th className="p-5">Lote / Importação / Região</th>
-                                <th className="p-5">Número de Serial</th>
-                                <th className="p-5">Status</th>
+                                <th className="p-5 cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('serial')}>
+                                    <div className="flex items-center">Número de Serial <SortIndicator field="serial" /></div>
+                                </th>
+                                <th className="p-5 cursor-pointer hover:bg-slate-200 transition-colors" onClick={() => handleSort('status')}>
+                                    <div className="flex items-center">Status <SortIndicator field="status" /></div>
+                                </th>
                                 <th className="p-5">Atribuído em</th>
                                 {showBaixadas && <th className="p-5">Baixado em</th>}
-                                <th className="p-5">Responsável / Operação</th>
+                                <th className="p-5 cursor-pointer hover:bg-slate-200 transition-colors group" onClick={() => handleSort('responsavel')}>
+                                    <div className="flex items-center">
+                                        Responsável / Operação
+                                        <SortIndicator field="responsavel" />
+                                    </div>
+                                </th>
                                 {!showBaixadas && <th className="p-5 w-10"></th>}
                             </tr>
                         </thead>
@@ -361,7 +417,7 @@ const Cadastros: React.FC = () => {
                                         <td className="p-5 text-xs font-black text-slate-700">{m.atribuido_em ? new Date(m.atribuido_em).toLocaleDateString() : '-'}</td>
                                         {showBaixadas && <td className="p-5 text-xs font-black text-slate-700">{m.baixado_em ? new Date(m.baixado_em).toLocaleDateString() : '-'}</td>}
                                         <td className="p-5">
-                                            <p className="font-black text-slate-900 text-xs">{m.consultor_nome || 'N/A'}</p>
+                                            <p className="font-black text-slate-900 text-xs uppercase">{m.consultor_nome || 'N/A'}</p>
                                             <p className="text-[9px] font-black text-slate-500 uppercase">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
                                         </td>
                                         {!showBaixadas && (
@@ -446,7 +502,7 @@ const Cadastros: React.FC = () => {
                         >
                             {!hasFixedRegiao && <option value="">MESMA DO LOTE (SE EXISTIR)</option>}
                             <option value="SERGIPE">SERGIPE (AJU / SE)</option>
-                            <option value="ALAGOAS">ALAGOAS (MAC)</option>
+                            <option value="ALAGOAS">ALAGOAS</option>
                         </select>
                     </div>
                     <button 

@@ -215,7 +215,7 @@ const CalculadoraGanhos: React.FC = () => {
                         </div>
                         <div className="space-y-8">
                             <div>
-                                <label className="block text-xs font-black text-slate-950 uppercase mb-4 tracking-tight">Quantidade Total de Máquinas Instaladas</label>
+                                <label className="block text-xs font-black text-slate-950 uppercase mb-4 tracking-tight">Quantidade Total de NEW + ATIVAS</label>
                                 <input 
                                     type="number" 
                                     className="w-full p-8 border-2 border-slate-200 rounded-[2rem] font-black text-5xl bg-slate-50 text-blue-800 outline-none focus:border-blue-700 transition-all focus:ring-8 focus:ring-blue-50"
