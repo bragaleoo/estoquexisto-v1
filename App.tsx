@@ -103,21 +103,37 @@ const App: React.FC = () => {
   const executarImportacao = async (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => {
     setIsSyncing(true);
     try {
-        // 1. Extrair todos os seriais do lote para consulta
+        // 1. Identificar seriais do arquivo
         const batchSerials = processados.map(p => p.normalizado);
         
-        // 2. Buscar no banco APENAS os seriais deste lote (evita limite de 1000 linhas)
-        const { data: duplicateMatches } = await supabase
+        // 2. Busca cirúrgica no banco para detectar duplicados (Independente do tamanho do banco)
+        const { data: dbMatches } = await supabase
             .from('maquinas')
             .select('serial')
             .in('serial', batchSerials);
             
-        const dbExistingSerials = new Set(duplicateMatches?.map(m => m.serial) || []);
+        const dbExistingSerials = new Set(dbMatches?.map(m => m.serial) || []);
 
         const importId = crypto.randomUUID();
-        let pedidoExistente = pedidos.find(p => p.codigo_pedido.toUpperCase() === codigoPedido.toUpperCase());
-        const pedidoId = pedidoExistente ? pedidoExistente.id : crypto.randomUUID();
         const dataBase = dataPedido ? new Date(dataPedido + 'T12:00:00').toISOString() : new Date().toISOString();
+
+        // 3. Gerenciar o Pedido (Lote) - GERANDO ID MANUAL PARA EVITAR ERRO DE CONSTRAINT
+        const tempPedidoId = crypto.randomUUID();
+        const { data: pedidoData, error: pError } = await supabase
+            .from('pedidos')
+            .upsert({ 
+                id: tempPedidoId, // Enviando ID gerado manualmente para prevenir o erro do banco
+                codigo_pedido: codigoPedido.toUpperCase(), 
+                qtd_esperada: qtdEsperada, 
+                regiao, 
+                criado_por: currentUser?.nome || 'Sistema'
+            }, { onConflict: 'codigo_pedido' })
+            .select()
+            .single();
+
+        if (pError || !pedidoData) throw new Error("Erro ao preparar lote no banco: " + (pError?.message || 'Sem dados de retorno'));
+        
+        const pedidoId = pedidoData.id;
 
         const maquinasParaInserir: Maquina[] = [];
         const novosLogs: ImportacaoItem[] = [];
@@ -127,10 +143,10 @@ const App: React.FC = () => {
             let itemStatus = item.status;
             let itemMotivo = item.motivo;
 
-            // Verificação em tempo real: Se o arquivo diz que é novo, mas o banco já tem
+            // Se o arquivo achava que era novo, mas o banco confirmou que já existe
             if (itemStatus === 'INSERIDO' && dbExistingSerials.has(item.normalizado)) {
                 itemStatus = 'DUPLICADO_SISTEMA';
-                itemMotivo = 'Detectado duplicidade em tempo real no banco';
+                itemMotivo = 'Serial já existente no banco de dados';
             }
 
             novosLogs.push({ 
@@ -143,7 +159,7 @@ const App: React.FC = () => {
                 erro_motivo: itemMotivo 
             });
 
-            // SÓ ADICIONA PARA INSERIR SE FOR REALMENTE INÉDITO
+            // SÓ ADICIONA PARA INSERIR SE FOR REALMENTE INÉDITO (AQUI ESTÃO AS 60)
             if (itemStatus === 'INSERIDO') {
                 const mId = crypto.randomUUID();
                 maquinasParaInserir.push({ 
@@ -166,60 +182,56 @@ const App: React.FC = () => {
             }
         });
 
-        // 3. Atualizar ou Criar Pedido com a quantidade EXATA inserida agora
-        if (!pedidoExistente) {
-            await supabase.from('pedidos').insert({ 
-                id: pedidoId, 
-                codigo_pedido: codigoPedido.toUpperCase(), 
-                qtd_esperada: qtdEsperada, 
-                qtd_importada: maquinasParaInserir.length, 
-                status_importacao: (qtdEsperada && maquinasParaInserir.length >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL', 
-                regiao, 
-                criado_em: dataBase, 
-                criado_por: currentUser?.nome || 'Sistema' 
-            });
-        } else {
-            const novaQtdTotal = (pedidoExistente.qtd_importada || 0) + maquinasParaInserir.length;
-            await supabase.from('pedidos').update({ 
-                qtd_importada: novaQtdTotal, 
-                status_importacao: (qtdEsperada && novaQtdTotal >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL' 
-            }).eq('id', pedidoId);
+        // 4. Salvar a Importação e os Logs
+        await supabase.from('importacoes').insert({ 
+            id: importId, 
+            pedido_id: pedidoId, 
+            arquivo_nome: arquivoNome, 
+            importado_em: new Date().toISOString(), 
+            importado_por: currentUser?.nome || 'Sistema', 
+            total_linhas_lidas: processados.length, 
+            seriais_validos: processados.filter(i => i.status !== 'INVALIDO').length, 
+            invalidos: processados.filter(i => i.status === 'INVALIDO').length, 
+            maquinas_inseridas: maquinasParaInserir.length, 
+            status: 'PROCESSADA' 
+        });
+
+        if (novosLogs.length > 0) {
+            await supabase.from('importacao_itens').insert(novosLogs);
         }
 
-        // 4. Salvar dados em lote
-        const promessas = [
-            supabase.from('importacoes').insert({ 
-                id: importId, 
-                pedido_id: pedidoId, 
-                arquivo_nome: arquivoNome, 
-                importado_em: new Date().toISOString(), 
-                importado_por: currentUser?.nome || 'Sistema', 
-                total_linhas_lidas: processados.length, 
-                seriais_validos: processados.filter(i => i.status !== 'INVALIDO').length, 
-                invalidos: processados.filter(i => i.status === 'INVALIDO').length, 
-                maquinas_inseridas: maquinasParaInserir.length, 
-                status: 'PROCESSADA' 
-            }),
-            novosLogs.length > 0 ? supabase.from('importacao_itens').insert(novosLogs) : Promise.resolve({ error: null })
-        ];
-
-        // Só tenta inserir se houver de fato máquinas novas
+        // 5. INSERIR MÁQUINAS (A parte das 60 inéditas)
         if (maquinasParaInserir.length > 0) {
-            promessas.push(supabase.from('maquinas').insert(maquinasParaInserir));
-            promessas.push(supabase.from('eventos_maquina').insert(novosEventos));
+            const { error: mError } = await supabase
+                .from('maquinas')
+                .upsert(maquinasParaInserir, { onConflict: 'serial', ignoreDuplicates: true });
+            
+            if (mError) {
+                console.error("Erro ao inserir máquinas inéditas:", mError);
+                throw mError;
+            }
+            
+            await supabase.from('eventos_maquina').insert(novosEventos);
         }
 
-        const results = await Promise.all(promessas);
-        const error = results.find(r => r.error);
+        // 6. Atualizar contagem real do lote após a inserção
+        const { data: countData } = await supabase
+            .from('maquinas')
+            .select('id')
+            .eq('pedido_id', pedidoId);
         
-        if (error) {
-            console.error("Erro no salvamento final:", error.error);
-            throw error.error;
-        }
+        const totalRealNoBanco = countData?.length || 0;
+        
+        await supabase.from('pedidos')
+            .update({ 
+                qtd_importada: totalRealNoBanco, 
+                status_importacao: (qtdEsperada && totalRealNoBanco >= qtdEsperada) ? 'COMPLETA' : 'PARCIAL' 
+            })
+            .eq('id', pedidoId);
 
         triggerRefresh();
     } catch (err) {
-        console.error("Erro crítico na importação:", err);
+        console.error("ERRO CRÍTICO NA GRAVAÇÃO:", err);
         throw err;
     } finally {
         setIsSyncing(false);
