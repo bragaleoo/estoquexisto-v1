@@ -25,7 +25,6 @@ const Cadastros: React.FC = () => {
     const [filterConsultor, setFilterConsultor] = useState('');
     const [filterRegiao, setFilterRegiao] = useState(''); 
 
-    // Estados para Ordenação
     const [sortField, setSortField] = useState<SortField>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
@@ -77,14 +76,13 @@ const Cadastros: React.FC = () => {
     }, [pedidos, currentUser, hasFixedRegiao]);
 
     useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
-    useEffect(() => { 
-        setFilterStatus(''); 
-        setFilterDataBaixa('');
-    }, [showBaixadas]);
 
     const getSupervisorRegion = (supervisorName: string): Regiao | null => {
         const name = supervisorName.toUpperCase();
-        if (name.startsWith('AJU') || name.startsWith('SE')) return 'SERGIPE';
+        if (name.startsWith('SE')) return 'SERGIPE'; // SE 01, SE 02...
+        if (name.startsWith('AL')) return 'ALAGOAS'; // AL 01, AL 02...
+        // Fallback para nomes antigos caso ainda existam temporariamente no código
+        if (name.startsWith('AJU')) return 'SERGIPE';
         if (name.startsWith('MAC')) return 'ALAGOAS';
         return null;
     };
@@ -354,8 +352,8 @@ const Cadastros: React.FC = () => {
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Região</label><select disabled={hasFixedRegiao} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={hasFixedRegiao ? currentUser.regiao : filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Operação</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={filterOp} onChange={e => setFilterOp(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.filter(s => {
                             if (!hasFixedRegiao) return true;
-                            if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE');
-                            if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('MAC');
+                            if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('SE');
+                            if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL');
                             return true;
                         }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                         <div>
@@ -483,8 +481,8 @@ const Cadastros: React.FC = () => {
                                 <option value="">SELECIONE A OPERAÇÃO *</option>
                                 {SUPERVISORES.filter(s => {
                                     if (!hasFixedRegiao) return true;
-                                    if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE');
-                                    if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('MAC');
+                                    if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('SE');
+                                    if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL');
                                     return true;
                                 }).map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                             </select>

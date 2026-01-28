@@ -26,19 +26,21 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
         } else if (u === 'estoquealxisto' && p === '753951@') {
             onLogin({ perfil: 'Estoquista', nome: 'Estoquista Alagoas', regiao: 'ALAGOAS' });
         } else if (u === 'aju01' && p === '134679@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AJU 01', supervisorId: 1 });
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 02', supervisorId: 1 });
         } else if (u === 'aju02' && p === '123654@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AJU 02', supervisorId: 2 });
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 01', supervisorId: 2 });
         } else if (u === 'aju03' && p === '789456@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AJU 03', supervisorId: 3 });
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 03', supervisorId: 3 });
         } else if (u === 'se04' && p === '654321@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 04', supervisorId: 4 });
         } else if (u === 'se05' && p === '987654@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 05', supervisorId: 5 });
         } else if (u === 'mac01' && p === '654987@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor MAC 01', supervisorId: 6 });
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 02', supervisorId: 6 });
         } else if (u === 'mac02' && p === '123789@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor MAC 02', supervisorId: 7 });
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 01', supervisorId: 7 });
+        } else if (u === 'al03' && p === '159357@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 03', supervisorId: 8 });
         } else if (u === 'gerentexisto' && p === '852963@') {
             onLogin({ perfil: 'Administrador', nome: 'Gerente Xisto' });
         } else if (u === 'coordenadorxisto' && p === '741963@') {
@@ -66,7 +68,7 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
                     <input 
                         type="text" 
                         required
-                        placeholder="Ex: estoquealxisto"
+                        placeholder="Ex: al03"
                         className="w-full p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-950 outline-none focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-300 text-lg"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
