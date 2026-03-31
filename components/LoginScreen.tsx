@@ -16,36 +16,43 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
     setLoading(true);
 
     setTimeout(() => {
-        const u = username.toLowerCase();
-        const p = password;
+        const u = username.toLowerCase().trim();
+        const p = password.trim();
 
+        // ACESSOS ADMINISTRATIVOS E ESTOQUE
         if (u === 'admxisto' && p === '794613@') {
             onLogin({ perfil: 'Administrador', nome: 'Administrador Xisto' });
         } else if (u === 'estoquexisto' && p === '316497@') {
             onLogin({ perfil: 'Estoquista', nome: 'Estoquista Central' });
         } else if (u === 'estoquealxisto' && p === '753951@') {
             onLogin({ perfil: 'Estoquista', nome: 'Estoquista Alagoas', regiao: 'ALAGOAS' });
+        } else if (u === 'gerentexisto' && p === '852963@') {
+            onLogin({ perfil: 'Administrador', nome: 'Gerente Xisto' });
+        } else if (u === 'coordenadorxisto' && p === '741963@') {
+            onLogin({ perfil: 'Administrador', nome: 'Coordenador Xisto' });
+        } 
+        // EQUIPES SERGIPE (SE)
+        else if (u === 'aju02' && p === '123654@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 01', supervisorId: 2 });
         } else if (u === 'aju01' && p === '134679@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 02', supervisorId: 1 });
-        } else if (u === 'aju02' && p === '123654@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 01', supervisorId: 2 });
         } else if (u === 'aju03' && p === '789456@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 03', supervisorId: 3 });
         } else if (u === 'se04' && p === '654321@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 04', supervisorId: 4 });
         } else if (u === 'se05' && p === '987654@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 05', supervisorId: 5 });
+        } 
+        // EQUIPES ALAGOAS (AL)
+        else if (u === 'mac02' && p === '123789@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 01', supervisorId: 7 });
         } else if (u === 'mac01' && p === '654987@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 02', supervisorId: 6 });
-        } else if (u === 'mac02' && p === '123789@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 01', supervisorId: 7 });
         } else if (u === 'al03' && p === '159357@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 03', supervisorId: 8 });
-        } else if (u === 'gerentexisto' && p === '852963@') {
-            onLogin({ perfil: 'Administrador', nome: 'Gerente Xisto' });
-        } else if (u === 'coordenadorxisto' && p === '741963@') {
-            onLogin({ perfil: 'Administrador', nome: 'Coordenador Xisto' });
-        } else if (u === 'consultor' && p === 'xisto') {
+        } 
+        // CONSULTOR
+        else if (u === 'consultor' && p === 'xisto') {
             onLogin({ perfil: 'Consultor', nome: 'Consultor de Vendas' });
         } else {
             setError('USUÁRIO OU SENHA INCORRETOS.');
@@ -68,7 +75,7 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
                     <input 
                         type="text" 
                         required
-                        placeholder="Ex: al03"
+                        placeholder="Ex: aju01, se04, al03"
                         className="w-full p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-950 outline-none focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-300 text-lg"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}

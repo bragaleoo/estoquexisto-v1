@@ -19,6 +19,7 @@ const Devolucoes: React.FC = () => {
     const [filterRegiao, setFilterRegiao] = useState('');
 
     const [currentPage, setCurrentPage] = useState(1);
+    const [activeTab, setActiveTab] = useState<'PENDENTE' | 'ENTREGUE'>('PENDENTE');
     const itemsPerPage = 50;
 
     const [formData, setFormData] = useState({
@@ -96,9 +97,9 @@ const Devolucoes: React.FC = () => {
                      else if (filterRegiao === 'ALAGOAS') matchRegiao = nome.startsWith('MAC');
                  }
              }
-            return matchSerial && matchSupervisor && matchConsultor && matchData && matchRegiao;
+            return matchSerial && matchSupervisor && matchConsultor && matchData && matchRegiao && (activeTab === 'PENDENTE' ? !d.data_envio_correios : !!d.data_envio_correios);
         });
-    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao, hasFixedRegiao]);
+    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao, hasFixedRegiao, activeTab]);
 
     const paginatedItems = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -183,6 +184,10 @@ const Devolucoes: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl shadow-sm border-2 border-slate-200 overflow-hidden">
+                <div className="p-6 border-b-2 border-slate-200 flex gap-2">
+                    <button onClick={() => { setActiveTab('PENDENTE'); setCurrentPage(1); }} className={`px-6 py-3 rounded-xl font-black text-xs uppercase transition-all ${activeTab === 'PENDENTE' ? 'bg-amber-100 text-amber-900 border-2 border-amber-200 shadow-sm' : 'bg-slate-50 text-slate-500 border-2 border-slate-200 hover:bg-slate-100'}`}>Pendentes de Envio</button>
+                    <button onClick={() => { setActiveTab('ENTREGUE'); setCurrentPage(1); }} className={`px-6 py-3 rounded-xl font-black text-xs uppercase transition-all ${activeTab === 'ENTREGUE' ? 'bg-emerald-100 text-emerald-900 border-2 border-emerald-200 shadow-sm' : 'bg-slate-50 text-slate-500 border-2 border-slate-200 hover:bg-slate-100'}`}>Enviadas</button>
+                </div>
                 <div className="p-6 bg-slate-50 border-b-2 border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value.toUpperCase())} /></div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label><select disabled={hasFixedRegiao} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={hasFixedRegiao ? currentUser.regiao : filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
