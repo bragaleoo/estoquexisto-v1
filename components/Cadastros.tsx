@@ -117,7 +117,7 @@ const Cadastros: React.FC = () => {
             const regiaoEfetiva = m.regiao || pedidoRelacionado?.regiao;
 
             const matchPedido = filterPedido ? (pedidoRelacionado?.codigo_pedido || 'SEM LOTE').toUpperCase().includes(filterPedido.trim().toUpperCase()) : true;
-            const matchSerial = filterSerial ? m.serial.toUpperCase().includes(filterSerial.trim().toUpperCase()) : true;
+            const matchSerial = filterSerial ? (m.serial || '').toUpperCase().includes(filterSerial.trim().toUpperCase()) : true;
             const matchDataImp = filterDataImportacao ? m.criado_em.startsWith(filterDataImportacao) : true;
             const matchDataAtrib = filterDataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filterDataAtribuicao)) : true;
             const matchDataBaixa = filterDataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filterDataBaixa)) : true;
