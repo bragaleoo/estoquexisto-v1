@@ -18,7 +18,7 @@ interface AppContextType {
   triggerRefresh: () => void;
   executarImportacao: (codigoPedido: string, qtdEsperada: number | undefined, arquivoNome: string, processados: any[], dataPedido?: string, regiao?: Regiao) => Promise<void>;
   registrarMaquinaManual: (serial: string, loteCode: string, regiao?: Regiao) => Promise<void>;
-  atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string) => Promise<void>;
+  atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string, dataAtribuicao?: string) => Promise<void>;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => Promise<void>;
   baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => Promise<void>;
   desfazerBaixa: (maquinaId: string, justificativa: string) => Promise<void>;
@@ -274,11 +274,11 @@ const App: React.FC = () => {
     triggerRefresh();
   };
 
-  const atribuirEmLote = async (maquinaIds: string[], supervisorId: number, consultorNome: string) => {
+  const atribuirEmLote = async (maquinaIds: string[], supervisorId: number, consultorNome: string, dataAtribuicao?: string) => {
     setIsSyncing(true);
-    const timestamp = new Date().toISOString();
+    const timestamp = dataAtribuicao ? new Date(dataAtribuicao + 'T12:00:00').toISOString() : new Date().toISOString();
     await supabase.from('maquinas').update({ status_estoque: 'ATRIBUIDA', supervisor_id: supervisorId, consultor_nome: consultorNome, atribuido_em: timestamp }).in('id', maquinaIds);
-    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'ATRIBUICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'ATRIBUIDA', supervisor: supervisorId, consultor: consultorNome } } }));
+    const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'ATRIBUICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'ATRIBUIDA', supervisor: supervisorId, consultor: consultorNome, data_atribuicao: timestamp } } }));
     const chunkSize = 200;
     for (let i = 0; i < novosEventos.length; i += chunkSize) {
         await supabase.from('eventos_maquina').insert(novosEventos.slice(i, i + chunkSize));

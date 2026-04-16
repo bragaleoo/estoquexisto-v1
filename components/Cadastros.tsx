@@ -40,6 +40,7 @@ const Cadastros: React.FC = () => {
         motivo: 'VENDA' as MotivoBaixa, 
         obs: '',
         dataBaixa: new Date().toISOString().split('T')[0],
+        dataAtribuicao: new Date().toISOString().split('T')[0],
         novaRegiao: '' as Regiao | ''
     });
 
@@ -224,7 +225,7 @@ const Cadastros: React.FC = () => {
             const supervisorId = parseInt(batchData.supervisor);
             if (!supervisorId) return alert("Selecione a operação.");
             if (checkRegionConflict(selectedIds, supervisorId)) return;
-            await atribuirEmLote(selectedIds, supervisorId, batchData.consultor.trim().toUpperCase());
+            await atribuirEmLote(selectedIds, supervisorId, batchData.consultor.trim().toUpperCase(), batchData.dataAtribuicao);
         } else if (batchAction === 'baixar') {
             await baixarEmLote(selectedIds, batchData.motivo, batchData.obs, batchData.dataBaixa);
         } else if (batchAction === 'disponibilizar') {
@@ -488,6 +489,7 @@ const Cadastros: React.FC = () => {
                             </select>
                             <input type="text" list="batch-consultor-list" placeholder="CONSULTOR" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={batchData.consultor} onChange={e => setBatchData({...batchData, consultor: e.target.value.toUpperCase()})} />
                             <datalist id="batch-consultor-list">{listaConsultores.map(nome => <option key={nome} value={nome} />)}</datalist>
+                            <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.dataAtribuicao} onChange={e => setBatchData({...batchData, dataAtribuicao: e.target.value})} />
                         </>
                     ) : batchAction === 'baixar' ? (
                         <>
