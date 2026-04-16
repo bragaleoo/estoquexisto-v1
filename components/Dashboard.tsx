@@ -13,9 +13,10 @@ const Dashboard: React.FC = () => {
   const { maquinas, pedidos, currentUser } = context;
 
   const regionalStats = useMemo(() => {
-    let sergipe = 0;
-    let alagoas = 0;
-    let central = 0;
+    let sergipeDisp = 0;
+    let sergipeAtrib = 0;
+    let alagoasDisp = 0;
+    let alagoasAtrib = 0;
 
     maquinas.forEach(m => {
         if (m.status_estoque === 'BAIXADA') return;
@@ -27,27 +28,32 @@ const Dashboard: React.FC = () => {
         if (currentUser?.regiao && regiao !== currentUser.regiao) return;
 
         if (regiao === 'SERGIPE') {
-            sergipe++;
+            if (m.status_estoque === 'DISPONIVEL') sergipeDisp++;
+            else if (m.status_estoque === 'ATRIBUIDA') sergipeAtrib++;
         } else if (regiao === 'ALAGOAS') {
-            alagoas++;
-        }
-
-        if (m.status_estoque === 'DISPONIVEL') {
-            central++;
+            if (m.status_estoque === 'DISPONIVEL') alagoasDisp++;
+            else if (m.status_estoque === 'ATRIBUIDA') alagoasAtrib++;
         }
     });
 
-    return { sergipe, alagoas, central };
+    return { 
+        sergipeDisp, 
+        sergipeAtrib, 
+        alagoasDisp, 
+        alagoasAtrib,
+        totalDisp: sergipeDisp + alagoasDisp
+    };
   }, [maquinas, pedidos, currentUser]);
 
   const dadosGrafico = useMemo(() => {
       const baseData = [
-          { name: 'Sergipe', quantidade: regionalStats.sergipe, color: '#1d4ed8', reg: 'SERGIPE' },
-          { name: 'Alagoas', quantidade: regionalStats.alagoas, color: '#047857', reg: 'ALAGOAS' },
-          { name: 'Central', quantidade: regionalStats.central, color: '#64748b', reg: 'CENTRAL' },
+          { name: 'Sergipe (Disp)', quantidade: regionalStats.sergipeDisp, color: '#1d4ed8', reg: 'SERGIPE' },
+          { name: 'Sergipe (Atrib)', quantidade: regionalStats.sergipeAtrib, color: '#1e40af', reg: 'SERGIPE' },
+          { name: 'Alagoas (Disp)', quantidade: regionalStats.alagoasDisp, color: '#047857', reg: 'ALAGOAS' },
+          { name: 'Alagoas (Atrib)', quantidade: regionalStats.alagoasAtrib, color: '#065f46', reg: 'ALAGOAS' },
       ];
       if (currentUser?.regiao) {
-          return baseData.filter(d => d.reg === currentUser.regiao || d.reg === 'CENTRAL');
+          return baseData.filter(d => d.reg === currentUser.regiao);
       }
       return baseData;
   }, [regionalStats, currentUser]);
@@ -62,23 +68,23 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {(!currentUser?.regiao || currentUser.regiao === 'SERGIPE') && (
             <Card 
-            title="Disponível Sergipe"
-            value={regionalStats.sergipe}
+            title="Sergipe (Disp / Atrib)"
+            value={`${regionalStats.sergipeDisp} / ${regionalStats.sergipeAtrib}`}
             icon={<CreditCardIcon className="w-8 h-8 text-white" />}
             color="bg-blue-700 shadow-xl shadow-blue-200"
             />
         )}
         {(!currentUser?.regiao || currentUser.regiao === 'ALAGOAS') && (
             <Card 
-            title="Disponível Alagoas"
-            value={regionalStats.alagoas}
+            title="Alagoas (Disp / Atrib)"
+            value={`${regionalStats.alagoasDisp} / ${regionalStats.alagoasAtrib}`}
             icon={<CreditCardIcon className="w-8 h-8 text-white" />}
             color="bg-emerald-700 shadow-xl shadow-emerald-200"
             />
         )}
         <Card 
-          title="Estoque Central"
-          value={regionalStats.central}
+          title="Estoque Central (Total)"
+          value={`Disp: ${regionalStats.totalDisp} | S: ${regionalStats.sergipeDisp} | A: ${regionalStats.alagoasDisp}`}
           icon={<CreditCardIcon className="w-8 h-8 text-white" />}
           color="bg-slate-500 shadow-xl shadow-slate-200"
         />
