@@ -99,11 +99,12 @@ const Cadastros: React.FC = () => {
 
     const filteredInventory = useMemo(() => {
         let list = [...maquinas];
-        if (isSupervisor) {
+        const isAdmin = currentUser?.perfil === 'Administrador';
+        if (isSupervisor && !isAdmin) {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
         }
         
-        if (hasFixedRegiao) {
+        if (hasFixedRegiao && !isAdmin) {
             list = list.filter(m => {
                 const p = pedidos.find(pd => pd.id === m.pedido_id);
                 const reg = m.regiao || p?.regiao;
@@ -400,7 +401,7 @@ const Cadastros: React.FC = () => {
                                 const pedido = pedidos.find(p => p.id === m.pedido_id);
                                 const regiaoEfetiva = m.regiao || pedido?.regiao;
                                 return (
-                                    <tr key={m.id} className={`hover:bg-slate-50 transition-colors cursor-pointer group ${selectedIds.includes(m.id) ? 'bg-blue-50/50' : ''}`} onClick={() => toggleSelect(m.id)}>
+                                    <tr key={`${m.id}-${m.status_estoque}`} className={`hover:bg-slate-50 transition-colors cursor-pointer group ${selectedIds.includes(m.id) ? 'bg-blue-50/50' : ''}`} onClick={() => toggleSelect(m.id)}>
                                         {!isSupervisor && <td className="p-5 text-center"><input type="checkbox" checked={selectedIds.includes(m.id)} readOnly className="w-5 h-5 accent-blue-700" /></td>}
                                         <td className="p-5">
                                             <p className={`font-black uppercase text-xs ${pedido ? 'text-blue-800' : 'text-red-600'}`}>
