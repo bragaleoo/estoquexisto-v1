@@ -298,11 +298,9 @@ const Cadastros: React.FC = () => {
                                 {!hasFixedRegiao && (
                                     <button onClick={() => setBatchAction('regiao')} className="bg-slate-950 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-black transition">Mudar Região ({selectedIds.length})</button>
                                 )}
+                                <button onClick={() => setBatchAction('disponibilizar')} className="bg-slate-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-700 transition">Disponibilizar ({selectedIds.length})</button>
                                 {!showBaixadas && (
-                                    <>
-                                        <button onClick={() => setBatchAction('disponibilizar')} className="bg-slate-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-700 transition">Disponibilizar ({selectedIds.length})</button>
-                                        <button onClick={() => setBatchAction('baixar')} className="bg-red-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-red-900 transition">Baixar ({selectedIds.length})</button>
-                                    </>
+                                    <button onClick={() => setBatchAction('baixar')} className="bg-red-800 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-red-900 transition">Baixar ({selectedIds.length})</button>
                                 )}
                             </>
                         )}

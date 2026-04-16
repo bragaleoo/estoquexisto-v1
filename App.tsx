@@ -310,7 +310,16 @@ const App: React.FC = () => {
   const disponibilizarEmLote = async (maquinaIds: string[]) => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
-    await supabase.from('maquinas').update({ status_estoque: 'DISPONIVEL', supervisor_id: null, consultor_nome: null, atribuido_em: null }).in('id', maquinaIds);
+    await supabase.from('maquinas').update({ 
+        status_estoque: 'DISPONIVEL', 
+        supervisor_id: null, 
+        consultor_nome: null, 
+        atribuido_em: null,
+        baixado_em: null,
+        motivo_baixa: null,
+        observacao_baixa: null,
+        baixado_por: null
+    }).in('id', maquinaIds);
     const novosEventos = maquinaIds.map(id => ({ id: crypto.randomUUID(), maquina_id: id, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { status: 'DISPONIVEL' } } }));
     const chunkSize = 200;
     for (let i = 0; i < novosEventos.length; i += chunkSize) {
