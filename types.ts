@@ -97,4 +97,4 @@ export interface Supervisor {
   nome: string;
 }
 
-export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'devolucoes' | 'calculadora';
+export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'devolucoes' | 'acompanhamento';
