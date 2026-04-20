@@ -13,6 +13,7 @@ const Devolucoes: React.FC = () => {
     const [selectedDevolucao, setSelectedDevolucao] = useState<Devolucao | null>(null);
     
     const [filterSerial, setFilterSerial] = useState('');
+    const [filterRastreio, setFilterRastreio] = useState('');
     const [filterSupervisor, setFilterSupervisor] = useState('');
     const [filterConsultor, setFilterConsultor] = useState('');
     const [filterData, setFilterData] = useState('');
@@ -63,7 +64,7 @@ const Devolucoes: React.FC = () => {
         }
     }, [currentUser, isSupervisor]);
 
-    useEffect(() => { setCurrentPage(1); }, [filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao]);
+    useEffect(() => { setCurrentPage(1); }, [filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao, filterRastreio]);
 
     const filteredItems = useMemo(() => {
         let list = devolucoes;
@@ -84,6 +85,7 @@ const Devolucoes: React.FC = () => {
 
         return list.filter(d => {
             const matchSerial = filterSerial ? d.serial.toUpperCase().includes(filterSerial.trim().toUpperCase()) : true;
+            const matchRastreio = filterRastreio ? (d.codigo_rastreio || '').toUpperCase().includes(filterRastreio.trim().toUpperCase()) : true;
             const matchSupervisor = filterSupervisor ? d.supervisor_id === parseInt(filterSupervisor) : true;
             const matchConsultor = filterConsultor ? (d.consultor_nome || '').toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
             const matchData = filterData ? d.data_entrega === filterData : true;
@@ -97,9 +99,9 @@ const Devolucoes: React.FC = () => {
                      else if (filterRegiao === 'ALAGOAS') matchRegiao = nome.startsWith('MAC');
                  }
              }
-            return matchSerial && matchSupervisor && matchConsultor && matchData && matchRegiao && (activeTab === 'PENDENTE' ? !d.data_envio_correios : !!d.data_envio_correios);
+            return matchSerial && matchRastreio && matchSupervisor && matchConsultor && matchData && matchRegiao && (activeTab === 'PENDENTE' ? !d.data_envio_correios : !!d.data_envio_correios);
         });
-    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao, hasFixedRegiao, activeTab]);
+    }, [devolucoes, isSupervisor, currentUser, filterSerial, filterSupervisor, filterConsultor, filterData, filterRegiao, hasFixedRegiao, activeTab, filterRastreio]);
 
     const paginatedItems = useMemo(() => {
         const start = (currentPage - 1) * itemsPerPage;
@@ -188,8 +190,9 @@ const Devolucoes: React.FC = () => {
                     <button onClick={() => { setActiveTab('PENDENTE'); setCurrentPage(1); }} className={`px-6 py-3 rounded-xl font-black text-xs uppercase transition-all ${activeTab === 'PENDENTE' ? 'bg-amber-100 text-amber-900 border-2 border-amber-200 shadow-sm' : 'bg-slate-50 text-slate-500 border-2 border-slate-200 hover:bg-slate-100'}`}>Pendentes de Envio</button>
                     <button onClick={() => { setActiveTab('ENTREGUE'); setCurrentPage(1); }} className={`px-6 py-3 rounded-xl font-black text-xs uppercase transition-all ${activeTab === 'ENTREGUE' ? 'bg-emerald-100 text-emerald-900 border-2 border-emerald-200 shadow-sm' : 'bg-slate-50 text-slate-500 border-2 border-slate-200 hover:bg-slate-100'}`}>Enviadas</button>
                 </div>
-                <div className="p-6 bg-slate-50 border-b-2 border-slate-200 grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="p-6 bg-slate-50 border-b-2 border-slate-200 grid grid-cols-1 md:grid-cols-6 gap-4">
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value.toUpperCase())} /></div>
+                    <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Rastreio</label><input type="text" placeholder="RASTREIO..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={filterRastreio} onChange={e => setFilterRastreio(e.target.value.toUpperCase())} /></div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Região</label><select disabled={hasFixedRegiao} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600" value={hasFixedRegiao ? currentUser.regiao : filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label><select disabled={isSupervisor} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600 disabled:opacity-50" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.filter(s => {
                         if (!hasFixedRegiao) return true;

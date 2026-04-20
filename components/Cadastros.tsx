@@ -112,7 +112,10 @@ const Cadastros: React.FC = () => {
     };
 
     const filteredInventory = useMemo(() => {
-        let list = [...maquinas];
+        // Remove duplicatas baseadas no ID da máquina antes de qualquer processamento
+        const uniqueMaquinas = Array.from(new Map(maquinas.map(m => [m.id, m])).values());
+        
+        let list = [...uniqueMaquinas];
         const isAdmin = currentUser?.perfil === 'Administrador';
         if (isSupervisor && !isAdmin) {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
