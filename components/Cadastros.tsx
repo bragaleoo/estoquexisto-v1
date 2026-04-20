@@ -17,6 +17,7 @@ const Cadastros: React.FC = () => {
     
     const [filterPedido, setFilterPedido] = useState('');
     const [filterSerial, setFilterSerial] = useState('');
+    const [exactMatch, setExactMatch] = useState(false); // Adicionado modo de busca exata
     const [filterDataImportacao, setFilterDataImportacao] = useState('');
     const [filterDataAtribuicao, setFilterDataAtribuicao] = useState('');
     const [filterDataBaixa, setFilterDataBaixa] = useState('');
@@ -24,6 +25,19 @@ const Cadastros: React.FC = () => {
     const [filterOp, setFilterOp] = useState('');
     const [filterConsultor, setFilterConsultor] = useState('');
     const [filterRegiao, setFilterRegiao] = useState(''); 
+
+    const clearFilters = () => {
+        setFilterPedido('');
+        setFilterSerial('');
+        setExactMatch(false);
+        setFilterDataImportacao('');
+        setFilterDataAtribuicao('');
+        setFilterDataBaixa('');
+        setFilterStatus('');
+        setFilterOp('');
+        setFilterConsultor('');
+        setFilterRegiao('');
+    };
 
     const [sortField, setSortField] = useState<SortField>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -76,7 +90,7 @@ const Cadastros: React.FC = () => {
             .map(p => p.codigo_pedido).sort((a: string, b: string) => a.localeCompare(b));
     }, [pedidos, currentUser, hasFixedRegiao]);
 
-    useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
+    useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, exactMatch, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
 
     const getSupervisorRegion = (supervisorName: string): Regiao | null => {
         const name = supervisorName.toUpperCase();
@@ -118,8 +132,16 @@ const Cadastros: React.FC = () => {
             const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
             const regiaoEfetiva = m.regiao || pedidoRelacionado?.regiao;
 
-            const matchPedido = filterPedido ? (pedidoRelacionado?.codigo_pedido || 'SEM LOTE').toUpperCase().includes(filterPedido.trim().toUpperCase()) : true;
-            const matchSerial = filterSerial ? (m.serial || '').toUpperCase().includes(filterSerial.trim().toUpperCase()) : true;
+            const matchPedido = filterPedido ? (
+                exactMatch 
+                    ? (pedidoRelacionado?.codigo_pedido || 'SEM LOTE').toUpperCase() === filterPedido.trim().toUpperCase()
+                    : (pedidoRelacionado?.codigo_pedido || 'SEM LOTE').toUpperCase().includes(filterPedido.trim().toUpperCase())
+            ) : true;
+            const matchSerial = filterSerial ? (
+                exactMatch 
+                    ? (m.serial || '').toUpperCase() === filterSerial.trim().toUpperCase()
+                    : (m.serial || '').toUpperCase().includes(filterSerial.trim().toUpperCase())
+            ) : true;
             const matchDataImp = filterDataImportacao ? m.criado_em.startsWith(filterDataImportacao) : true;
             const matchDataAtrib = filterDataAtribuicao ? (m.atribuido_em && m.atribuido_em.startsWith(filterDataAtribuicao)) : true;
             const matchDataBaixa = filterDataBaixa ? (m.baixado_em && m.baixado_em.startsWith(filterDataBaixa)) : true;
@@ -332,8 +354,22 @@ const Cadastros: React.FC = () => {
                         </div>
                     </div>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-8">
-                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Pedido</label><input type="text" placeholder="CÓDIGO..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterPedido} onChange={e => setFilterPedido(e.target.value.toUpperCase())} /></div>
-                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Serial</label><input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value.toUpperCase())} /></div>
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Pedido</label>
+                            <input type="text" placeholder="CÓDIGO..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterPedido} onChange={e => setFilterPedido(e.target.value.toUpperCase())} />
+                        </div>
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Serial</label>
+                            <input type="text" placeholder="SERIAL..." className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-blue-600" value={filterSerial} onChange={e => setFilterSerial(e.target.value.toUpperCase())} />
+                        </div>
+                        <div className="flex items-end">
+                            <label className="flex items-center gap-2 p-3 font-black text-[10px] uppercase text-slate-700 cursor-pointer">
+                                <input type="checkbox" checked={exactMatch} onChange={e => setExactMatch(e.target.checked)} className="w-4 h-4 rounded" /> Exata
+                            </label>
+                        </div>
+                        <div className="flex items-end">
+                            <button onClick={clearFilters} className="w-full p-3 bg-slate-800 text-white font-black text-[10px] uppercase rounded-xl hover:bg-slate-950">Limpar</button>
+                        </div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Data Imp.</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterDataImportacao} onChange={e => setFilterDataImportacao(e.target.value)} /></div>
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Data Atrib.</label><input type="date" className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black outline-none" value={filterDataAtribuicao} onChange={e => setFilterDataAtribuicao(e.target.value)} /></div>
                         {showBaixadas && (
