@@ -4,7 +4,7 @@ import Dashboard from './Dashboard';
 import Cadastros from './Cadastros';
 import Relatorios from './Relatorios';
 import Devolucoes from './Devolucoes';
-import AcompanhamentoVendas from './AcompanhamentoVendas';
+/* Remoção de AcompanhamentoVendas */
 import { Page } from '../types';
 import { AppContext } from '../App';
 import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon, BarChartIcon } from './ui/Icons';
@@ -39,7 +39,6 @@ const Layout: React.FC = () => {
     { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Estoquista'] },
     { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
-    { id: 'acompanhamento' as Page, label: 'Acompanhamento', icon: <BarChartIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
   ];
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser?.perfil || ''));
@@ -86,8 +85,6 @@ const Layout: React.FC = () => {
         return <Relatorios />;
       case 'devolucoes':
         return <Devolucoes />;
-      case 'acompanhamento':
-        return <AcompanhamentoVendas />;
       default:
         return <Dashboard />;
     }
