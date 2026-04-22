@@ -313,7 +313,7 @@ const Cadastros: React.FC = () => {
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Estoque Geral {currentUser?.regiao ? `(${currentUser.regiao})` : ''}</h1>
                     <p className="text-slate-900 font-black uppercase text-[10px] tracking-widest">
-                        Total Geral: {maquinas.length} ativos no banco.
+                        Total Ativo (Disp + Atrib): {maquinas.filter(m => m.status_estoque !== 'BAIXADA').length}
                     </p>
                 </div>
                 {!isSupervisor && (
