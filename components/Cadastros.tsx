@@ -84,6 +84,23 @@ const Cadastros: React.FC = () => {
         return Array.from(new Set(nomes)).sort((a: string, b: string) => a.localeCompare(b));
     }, [maquinas, currentUser, pedidos, hasFixedRegiao]);
 
+    const activeCount = useMemo(() => {
+        const uniqueMaquinas = Array.from(new Map(maquinas.map(m => [m.id, m])).values());
+        let list = [...uniqueMaquinas];
+        const isAdmin = currentUser?.perfil === 'Administrador';
+        if (isSupervisor && !isAdmin) {
+            list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
+        }
+        if (hasFixedRegiao && !isAdmin) {
+            list = list.filter(m => {
+                const p = pedidos.find(pd => pd.id === m.pedido_id);
+                const reg = m.regiao || p?.regiao;
+                return !reg || reg === currentUser.regiao;
+            });
+        }
+        return list.filter(m => m.status_estoque !== 'BAIXADA').length;
+    }, [maquinas, pedidos, isSupervisor, currentUser, hasFixedRegiao]);
+
     const listaPedidos = useMemo(() => {
         return pedidos
             .filter(p => !hasFixedRegiao || p.regiao === currentUser.regiao)
@@ -313,7 +330,7 @@ const Cadastros: React.FC = () => {
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 tracking-tight">Estoque Geral {currentUser?.regiao ? `(${currentUser.regiao})` : ''}</h1>
                     <p className="text-slate-900 font-black uppercase text-[10px] tracking-widest">
-                        Total Ativo (Disp + Atrib): {maquinas.filter(m => m.status_estoque !== 'BAIXADA').length}
+                        Total Ativo (Disp + Atrib): {activeCount}
                     </p>
                 </div>
                 {!isSupervisor && (
