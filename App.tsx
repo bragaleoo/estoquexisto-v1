@@ -62,7 +62,7 @@ const App: React.FC = () => {
       const { data, error } = await supabase
         .from('maquinas')
         .select('*')
-        .order('criado_em', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, from + step - 1);
 
       if (error) {
