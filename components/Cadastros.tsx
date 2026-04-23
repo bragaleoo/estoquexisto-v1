@@ -84,55 +84,18 @@ const Cadastros: React.FC = () => {
         return Array.from(new Set(nomes)).sort((a: string, b: string) => a.localeCompare(b));
     }, [maquinas, currentUser, pedidos, hasFixedRegiao]);
 
-    const activeCount = useMemo(() => {
-        const uniqueMaquinas = Array.from(new Map(maquinas.map(m => [m.id, m])).values());
-        let list = [...uniqueMaquinas];
-        const isAdmin = currentUser?.perfil === 'Administrador';
-        if (isSupervisor && !isAdmin) {
-            list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
-        }
-        if (hasFixedRegiao && !isAdmin) {
-            list = list.filter(m => {
-                const p = pedidos.find(pd => pd.id === m.pedido_id);
-                const reg = m.regiao || p?.regiao;
-                return !reg || reg === currentUser.regiao;
-            });
-        }
-        return list.filter(m => m.status_estoque !== 'BAIXADA').length;
-    }, [maquinas, pedidos, isSupervisor, currentUser, hasFixedRegiao]);
-
     const listaPedidos = useMemo(() => {
         return pedidos
             .filter(p => !hasFixedRegiao || p.regiao === currentUser.regiao)
             .map(p => p.codigo_pedido).sort((a: string, b: string) => a.localeCompare(b));
     }, [pedidos, currentUser, hasFixedRegiao]);
 
-    useEffect(() => { setCurrentPage(1); }, [filterPedido, filterSerial, exactMatch, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterOp, filterConsultor, showBaixadas, filterStatus, filterRegiao]);
-
-    const getSupervisorRegion = (supervisorName: string): Regiao | null => {
-        const name = supervisorName.toUpperCase();
-        if (name.startsWith('SE')) return 'SERGIPE'; // SE 01, SE 02...
-        if (name.startsWith('AL')) return 'ALAGOAS'; // AL 01, AL 02...
-        // Fallback para nomes antigos caso ainda existam temporariamente no código
-        if (name.startsWith('AJU')) return 'SERGIPE';
-        if (name.startsWith('MAC')) return 'ALAGOAS';
-        return null;
-    };
-
-    const handleSort = (field: SortField) => {
-        if (sortField === field) {
-            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
-        }
-    };
-
     const filteredInventory = useMemo(() => {
         // Remove duplicatas baseadas no ID da máquina antes de qualquer processamento
         const uniqueMaquinas = Array.from(new Map(maquinas.map(m => [m.id, m])).values());
         
         let list = [...uniqueMaquinas];
+        // ... (resto da lógica de filtro)
         const isAdmin = currentUser?.perfil === 'Administrador';
         if (isSupervisor && !isAdmin) {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
@@ -170,7 +133,12 @@ const Cadastros: React.FC = () => {
             const matchConsultor = filterConsultor ? (m.consultor_nome || '').toUpperCase().includes(filterConsultor.trim().toUpperCase()) : true;
             const matchRegiao = filterRegiao ? regiaoEfetiva === filterRegiao : true;
 
-            return matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
+            const isMatch = matchPedido && matchSerial && matchDataImp && matchDataAtrib && matchDataBaixa && matchStatus && matchOp && matchConsultor && matchRegiao;
+            
+            if (!isMatch) {
+               // Apenas para diagnóstico
+            }
+            return isMatch;
         });
 
         const statusWeight: Record<string, number> = {
@@ -211,6 +179,11 @@ const Cadastros: React.FC = () => {
             return new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime();
         });
     }, [maquinas, pedidos, isSupervisor, currentUser, showBaixadas, filterPedido, filterSerial, filterDataImportacao, filterDataAtribuicao, filterDataBaixa, filterStatus, filterOp, filterConsultor, filterRegiao, hasFixedRegiao, sortField, sortDirection]);
+
+    const activeCount = useMemo(() => {
+        // Usa o mesmo array filtrado 'filteredInventory', então o activeCount será idêntico ao label 'encontrados'
+        return filteredInventory.length;
+    }, [filteredInventory]);
 
     const handleExportExcel = () => {
         if (filteredInventory.length === 0) return alert("Não há ativos para exportar.");
