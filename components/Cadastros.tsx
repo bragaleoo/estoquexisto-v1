@@ -185,6 +185,25 @@ const Cadastros: React.FC = () => {
         return filteredInventory.length;
     }, [filteredInventory]);
 
+    const getSupervisorRegion = (supervisorName: string): Regiao | null => {
+        const name = supervisorName.toUpperCase();
+        if (name.startsWith('SE')) return 'SERGIPE'; // SE 01, SE 02...
+        if (name.startsWith('AL')) return 'ALAGOAS'; // AL 01, AL 02...
+        // Fallback para nomes antigos caso ainda existam temporariamente no código
+        if (name.startsWith('AJU')) return 'SERGIPE';
+        if (name.startsWith('MAC')) return 'ALAGOAS';
+        return null;
+    };
+
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortField(field);
+            setSortDirection('asc');
+        }
+    };
+
     const handleExportExcel = () => {
         if (filteredInventory.length === 0) return alert("Não há ativos para exportar.");
         const dataToExport = filteredInventory.map(m => {
