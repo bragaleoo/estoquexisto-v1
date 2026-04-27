@@ -57,16 +57,24 @@ const GerirConsultores: React.FC = () => {
     };
 
     const handleAdicionar = async () => {
-        if (!novoNome || supervisorSelecionado === null) return;
+        console.log("Adicionando consultor:", { novoNome, supervisorSelecionado });
+        if (!novoNome || supervisorSelecionado === null) {
+            console.log("Campos inválidos");
+            return;
+        }
         setLoading(true);
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('consultores')
-            .insert([{ nome: novoNome, status: 'ativo', supervisor_id: supervisorSelecionado }]);
+            .insert([{ nome: novoNome, supervisor_id: supervisorSelecionado }])
+            .select();
         
+        console.log("Resultado Supabase:", { data, error });
         if (!error) {
             setNovoNome('');
             fetchConsultores(supervisorSelecionado);
             setView('list');
+        } else {
+            alert("Erro ao adicionar: " + error.message);
         }
         setLoading(false);
     };
@@ -136,21 +144,21 @@ const GerirConsultores: React.FC = () => {
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-6 py-4">Nome</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4 text-right">Ação</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
+                                    <th className="px-6 py-4 text-center">Ação</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {consultores.map(c => (
                                     <tr key={c.id} className="border-t">
                                         <td className="px-6 py-4 font-semibold">{c.nome}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${c.status === 'ativo' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                                {c.status.toUpperCase()}
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${(c.status || 'inativo') === 'ativo' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                {(c.status || 'inativo').toUpperCase()}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600">
+                                        <td className="px-6 py-4 text-center">
+                                            <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600 inline-flex">
                                                 {c.status === 'ativo' ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
                                             </button>
                                         </td>
