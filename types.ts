@@ -93,8 +93,8 @@ export interface UserProfile {
 }
 
 export interface Supervisor {
-  id: number;
+  id: string;
   nome: string;
 }
 
-export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'devolucoes' | 'acompanhamento';
+export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'devolucoes' | 'acompanhamento' | 'credenciamentos' | 'gerir-consultores';

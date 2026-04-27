@@ -3,11 +3,14 @@ import React, { useState, useContext, useEffect } from 'react';
 import Dashboard from './Dashboard';
 import Cadastros from './Cadastros';
 import Relatorios from './Relatorios';
+import GerirConsultores from './GerirConsultores';
 import Devolucoes from './Devolucoes';
+import ConsultorCredenciamento from './ConsultorCredenciamento';
 /* Remoção de AcompanhamentoVendas */
 import { Page } from '../types';
 import { AppContext } from '../App';
 import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon, BarChartIcon } from './ui/Icons';
+import { Users } from 'lucide-react';
 
 const LAST_PAGE_KEY = 'xisto_last_page';
 
@@ -39,6 +42,8 @@ const Layout: React.FC = () => {
     { id: 'cadastros' as Page, label: currentUser?.perfil === 'Supervisor' ? 'Meu Estoque' : 'Estoque / Cadastros', icon: <ListIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista', 'Supervisor'] },
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Estoquista'] },
     { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
+    { id: 'credenciamentos' as Page, label: 'Credenciamentos', icon: <BarChartIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'gerir-consultores' as Page, label: 'Gerir Equipe', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
   ];
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser?.perfil || ''));
@@ -85,6 +90,10 @@ const Layout: React.FC = () => {
         return <Relatorios />;
       case 'devolucoes':
         return <Devolucoes />;
+      case 'credenciamentos':
+        return <ConsultorCredenciamento />;
+      case 'gerir-consultores':
+        return <GerirConsultores />;
       default:
         return <Dashboard />;
     }
