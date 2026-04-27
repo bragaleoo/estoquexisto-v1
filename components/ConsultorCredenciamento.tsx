@@ -21,6 +21,8 @@ const ConsultorCredenciamento: React.FC = () => {
   const currentUser = context?.currentUser;
   
   const [semana, setSemana] = useState(1);
+  const [mes, setMes] = useState(new Date().getMonth() + 1);
+  const [ano, setAno] = useState(new Date().getFullYear());
   const [supervisorFiltro, setSupervisorFiltro] = useState('');
   const [data, setData] = useState<Credenciamento[]>([]);
   const [supervisores, setSupervisores] = useState<{id: string, nome: string}[]>([]);
@@ -83,12 +85,12 @@ const ConsultorCredenciamento: React.FC = () => {
   };
 
   const fetchConsultores = async () => {
-    let query = supabase.from('consultores').select('id, nome').eq('status', 'ativo');
+    let query = supabase.from('consultores').select('id, nome, supervisor_id').eq('status', 'ativo');
     if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorId) {
         query = query.eq('supervisor_id', currentUser.supervisorId);
     }
     const { data } = await query;
-    if(data) setConsultores(data);
+    if(data) setConsultores(data as {id: string, nome: string, supervisor_id: string}[]);
   };
 
   const handleCreate = async () => {
@@ -163,6 +165,19 @@ const ConsultorCredenciamento: React.FC = () => {
     });
   }, [data, searchTerm, supervisorFiltro]);
 
+  const filteredConsultores = useMemo(() => {
+    return consultores.filter(c => {
+        const matchName = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
+        // For filtering consultants by supervisor, we need to know their supervisor_id.
+        // It seems consultant object has supervisor_id? Wait, fetchConsultores only selects id, nome
+        // Let's check line 86-91
+        // Ah, fetchConsultores line 86: .select('id, nome') - it doesn't have supervisor_id!
+        // I need to update fetchConsultores to include supervisor_id.
+        const matchSupervisor = supervisorFiltro ? (c as any).supervisor_id === supervisorFiltro : true;
+        return matchName && matchSupervisor;
+    });
+  }, [consultores, searchTerm, supervisorFiltro]);
+
   const stats = useMemo(() => {
     return filteredData.reduce((acc, curr) => ({
         cpf: acc.cpf + (curr.cpf_count || 0),
@@ -181,9 +196,17 @@ const ConsultorCredenciamento: React.FC = () => {
             <p className="text-slate-500 mt-1">Acompanhamento de performance operacional</p>
         </div>
           <div className="flex items-center space-x-4">
-            <select className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
-                <option value="4">Abril/2026</option>
-            </select>
+             <select value={`${mes}-${ano}`} onChange={(e) => {
+                 const [m, a] = e.target.value.split('-').map(Number);
+                 setMes(m);
+                 setAno(a);
+             }} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                 {Array.from({length: 12}).map((_, i) => {
+                     const m = i + 1;
+                     const a = new Date().getFullYear();
+                     return <option key={i} value={`${m}-${a}`}>{new Date(a, i).toLocaleString('pt-BR', { month: 'long' })}/{a}</option>
+                 })}
+             </select>
             <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
                 {WEEKS.map(w => <option key={w} value={w}>Semana {w}</option>)}
             </select>
@@ -212,6 +235,29 @@ const ConsultorCredenciamento: React.FC = () => {
       </div>
 
       {/* Table Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+        <div className="p-6 border-b border-slate-200">
+            <h2 className="text-lg font-bold text-slate-900">Relatório de Performance (KPIs)</h2>
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+             {filteredConsultores.map(c => {
+                 const consultantDaily = dailyData[c.id] || {};
+                 const totalCred = Object.values(consultantDaily).reduce((sum, day) => sum + day.cpf + day.cnpj, 0);
+                 const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
+                 const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
+                 return (
+                     <div key={c.id} className="flex items-center gap-3 border p-3 rounded-lg">
+                         <div className={`w-4 h-4 rounded-full ${color}`}></div>
+                         <div>
+                            <p className="text-sm font-semibold">{c.nome}</p>
+                            <p className="text-xs text-slate-500">Total Cred: {totalCred}</p>
+                         </div>
+                     </div>
+                 );
+             })}
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-200 flex justify-between items-center">
             <div className="flex gap-4 w-full">
@@ -237,8 +283,8 @@ const ConsultorCredenciamento: React.FC = () => {
                     <th className="px-6 py-4">Consultor</th>
                     {Array.from({length: 7}).map((_, i) => {
                         const day = (semana - 1) * 7 + i + 1;
-                        const date = new Date(new Date().getFullYear(), new Date().getMonth(), day);
-                        const isValid = date.getMonth() === new Date().getMonth();
+                        const date = new Date(ano, mes - 1, day);
+                        const isValid = date.getMonth() === mes - 1;
                         return (
                             <th key={i} className="px-2 py-4 text-center text-xs">
                                 {isValid ? `Dia ${date.getDate()}` : '-'}
@@ -252,13 +298,13 @@ const ConsultorCredenciamento: React.FC = () => {
             </thead>
             <tbody>
                         {/* Consultores */}
-                        {consultores.map(c => (
+                        {filteredConsultores.map(c => (
                             <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
                                 <td className="px-6 py-4 font-semibold text-slate-900">{c.nome}</td>
                                 {Array.from({length: 7}).map((_, i) => {
                                     const day = (semana - 1) * 7 + i + 1;
-                                    const date = new Date(new Date().getFullYear(), new Date().getMonth(), day);
-                                    const isValid = date.getMonth() === new Date().getMonth();
+                                    const date = new Date(ano, mes - 1, day);
+                                    const isValid = date.getMonth() === mes - 1;
                                     return (
                                         <td key={i} className="px-1 py-4 text-center">
                                             <div className="flex gap-0.5 justify-center">
