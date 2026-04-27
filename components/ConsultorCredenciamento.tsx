@@ -21,23 +21,66 @@ const ConsultorCredenciamento: React.FC = () => {
   const currentUser = context?.currentUser;
   
   const [semana, setSemana] = useState(1);
-  const [dataFiltro, setDataFiltro] = useState(new Date().toISOString().split('T')[0]);
   const [supervisorFiltro, setSupervisorFiltro] = useState('');
   const [data, setData] = useState<Credenciamento[]>([]);
+  const [supervisores, setSupervisores] = useState<{id: string, nome: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [consultores, setConsultores] = useState<{id: string, nome: string}[]>([]);
+  const [dailyData, setDailyData] = useState<Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>>>({});
   const [newEntry, setNewEntry] = useState({ consultor_id: '', data: new Date().toISOString().split('T')[0], cpf: 0, cnpj: 0, visitas: 0 });
   
   // State for editing
   const [editingCredId, setEditingCredId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState({ cpf: 0, cnpj: 0, visitas: 0 });
 
+  const handleInputChange = (consultorId: string, day: number, field: 'cpf' | 'cnpj' | 'visitas', value: number) => {
+    setDailyData(prev => ({
+        ...prev,
+        [consultorId]: {
+            ...prev[consultorId],
+            [day]: {
+                ...(prev[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 }),
+                [field]: value
+            }
+        }
+    }));
+  };
+
+  const handleSaveRow = async (consultorId: string, week: number) => {
+    const dataToSave = dailyData[consultorId];
+    if (!dataToSave) return;
+    
+    for (const [day, values] of Object.entries(dataToSave)) {
+        if (values.cpf === 0 && values.cnpj === 0 && values.visitas === 0) continue;
+        
+        const dayNumber = (week - 1) * 7 + Number(day);
+        const date = new Date(new Date().getFullYear(), new Date().getMonth(), dayNumber).toISOString().split('T')[0];
+
+        const { error } = await supabase.from('credenciamentos').upsert({
+            consultor_id: consultorId,
+            data: date,
+            cpf_count: values.cpf,
+            cnpj_count: values.cnpj,
+            visitas: values.visitas
+        }, { onConflict: 'consultor_id,data' });
+        
+        if (error) console.error('Erro ao salvar:', error);
+    }
+    alert('Salvo com sucesso!');
+  };
+
   useEffect(() => {
     fetchData();
     fetchConsultores();
+    fetchSupervisores();
   }, [semana]);
+
+  const fetchSupervisores = async () => {
+    const { data } = await supabase.from('supervisores').select('id, nome');
+    if(data) setSupervisores(data);
+  };
 
   const fetchConsultores = async () => {
     let query = supabase.from('consultores').select('id, nome').eq('status', 'ativo');
@@ -116,10 +159,9 @@ const ConsultorCredenciamento: React.FC = () => {
     return data.filter(d => {
         const matchName = d.consultores.nome.toLowerCase().includes(searchTerm.toLowerCase());
         const matchSupervisor = supervisorFiltro ? d.consultores.supervisor_id === supervisorFiltro : true;
-        const matchData = dataFiltro ? d.data === dataFiltro : true;
-        return matchName && matchSupervisor && matchData;
+        return matchName && matchSupervisor;
     });
-  }, [data, searchTerm, supervisorFiltro, dataFiltro]);
+  }, [data, searchTerm, supervisorFiltro]);
 
   const stats = useMemo(() => {
     return filteredData.reduce((acc, curr) => ({
@@ -138,16 +180,14 @@ const ConsultorCredenciamento: React.FC = () => {
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Credenciamentos</h1>
             <p className="text-slate-500 mt-1">Acompanhamento de performance operacional</p>
         </div>
-         <div className="flex items-center space-x-4">
-           <input type="text" placeholder="ID Sup." value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500 w-24" />
-           <input type="date" value={dataFiltro} onChange={(e) => setDataFiltro(e.target.value)} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500" />
-           <select className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
-               <option value="4">Abril/2026</option>
-           </select>
-           <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
-               {WEEKS.map(w => <option key={w} value={w}>Semana {w}</option>)}
-           </select>
-         </div>
+          <div className="flex items-center space-x-4">
+            <select className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                <option value="4">Abril/2026</option>
+            </select>
+            <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                {WEEKS.map(w => <option key={w} value={w}>Semana {w}</option>)}
+            </select>
+          </div>
       </div>
 
       {/* Stats */}
@@ -173,60 +213,67 @@ const ConsultorCredenciamento: React.FC = () => {
 
       {/* Table Section */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-            <div className="relative w-full max-w-sm">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                <input 
-                    type="text" 
-                    placeholder="Buscar consultor..." 
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+          <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+            <div className="flex gap-4 w-full">
+              <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                  <input 
+                      type="text" 
+                      placeholder="Buscar consultor..." 
+                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+              </div>
+              <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                 <option value="">Todas Supervisões</option>
+                 {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
             </div>
-            <button onClick={() => setShowModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                <Plus className="w-4 h-4"/> Novo Registro
-            </button>
         </div>
         <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50">
                 <tr>
                     <th className="px-6 py-4">Consultor</th>
-                    <th className="px-6 py-4">Data</th>
-                    <th className="px-6 py-4 text-center">CPFs</th>
-                    <th className="px-6 py-4 text-center">CNPJs</th>
-                    <th className="px-6 py-4 text-center">Visitas</th>
-                    <th className="px-6 py-4 text-right">Ação</th>
+                    {Array.from({length: 7}).map((_, i) => {
+                        const day = (semana - 1) * 7 + i + 1;
+                        const date = new Date(new Date().getFullYear(), new Date().getMonth(), day);
+                        const isValid = date.getMonth() === new Date().getMonth();
+                        return (
+                            <th key={i} className="px-2 py-4 text-center text-xs">
+                                {isValid ? `Dia ${date.getDate()}` : '-'}
+                                <div className="flex justify-around text-[10px] text-slate-400 mt-1">
+                                    <span>PF</span><span>PJ</span><span>Vis</span>
+                                </div>
+                            </th>
+                        );
+                    })}
                 </tr>
             </thead>
             <tbody>
-                {filteredData.map((d) => (
-                    <tr key={d.id} className="border-t border-slate-100 hover:bg-slate-50">
-                        <td className="px-6 py-4 font-semibold text-slate-900">{d.consultores.nome}</td>
-                        <td className="px-6 py-4 text-slate-600">{new Date(d.data).toLocaleDateString()}</td>
-                        {editingCredId === d.id ? (
-                            <>
-                                <td className="px-6 py-4"><input type="number" className="p-1 w-16 border rounded" value={editValues.cpf} onChange={e => setEditValues({...editValues, cpf: Number(e.target.value)})} /></td>
-                                <td className="px-6 py-4"><input type="number" className="p-1 w-16 border rounded" value={editValues.cnpj} onChange={e => setEditValues({...editValues, cnpj: Number(e.target.value)})} /></td>
-                                <td className="px-6 py-4"><input type="number" className="p-1 w-16 border rounded" value={editValues.visitas} onChange={e => setEditValues({...editValues, visitas: Number(e.target.value)})} /></td>
-                                <td className="px-6 py-4 text-right">
-                                    <button onClick={() => handleUpdate(d.id)} className="text-emerald-600 font-bold">Salvar</button>
+                        {/* Consultores */}
+                        {consultores.map(c => (
+                            <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
+                                <td className="px-6 py-4 font-semibold text-slate-900">{c.nome}</td>
+                                {Array.from({length: 7}).map((_, i) => {
+                                    const day = (semana - 1) * 7 + i + 1;
+                                    const date = new Date(new Date().getFullYear(), new Date().getMonth(), day);
+                                    const isValid = date.getMonth() === new Date().getMonth();
+                                    return (
+                                        <td key={i} className="px-1 py-4 text-center">
+                                            <div className="flex gap-0.5 justify-center">
+                                                <input type="number" min="0" disabled={!isValid} className="w-10 p-1 border rounded text-center text-xs" placeholder="PF" value={dailyData[c.id]?.[day]?.cpf || ''} onChange={e => handleInputChange(c.id, day, 'cpf', Number(e.target.value))} />
+                                                <input type="number" min="0" disabled={!isValid} className="w-10 p-1 border rounded text-center text-xs" placeholder="PJ" value={dailyData[c.id]?.[day]?.cnpj || ''} onChange={e => handleInputChange(c.id, day, 'cnpj', Number(e.target.value))} />
+                                                <input type="number" min="0" disabled={!isValid} className="w-10 p-1 border rounded text-center text-xs" placeholder="Vis" value={dailyData[c.id]?.[day]?.visitas || ''} onChange={e => handleInputChange(c.id, day, 'visitas', Number(e.target.value))} />
+                                            </div>
+                                        </td>
+                                    );
+                                })}
+                                <td className="px-2 py-4">
+                                    <button onClick={() => handleSaveRow(c.id, semana)} className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">Salvar</button>
                                 </td>
-                            </>
-                        ) : (
-                            <>
-                                <td className="px-6 py-4 text-center font-medium">{d.cpf_count}</td>
-                                <td className="px-6 py-4 text-center font-medium">{d.cnpj_count}</td>
-                                <td className="px-6 py-4 text-center font-medium">{d.visitas}</td>
-                                <td className="px-6 py-4 text-right">
-                                    <button onClick={() => { setEditingCredId(d.id); setEditValues({ cpf: d.cpf_count, cnpj: d.cnpj_count, visitas: d.visitas }); }} className="text-slate-500 hover:text-blue-600">
-                                        <Edit2 className="w-4 h-4" />
-                                    </button>
-                                </td>
-                            </>
-                        )}
-                    </tr>
-                ))}
+                            </tr>
+                        ))}
             </tbody>
         </table>
       </div>
