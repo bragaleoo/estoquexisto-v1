@@ -29,7 +29,7 @@ const ConsultorCredenciamento: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [consultores, setConsultores] = useState<{id: string, nome: string}[]>([]);
+  const [consultores, setConsultores] = useState<{id: string, nome: string, supervisor_id: string}[]>([]);
   const [dailyData, setDailyData] = useState<Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>>>({});
   const [newEntry, setNewEntry] = useState({ consultor_id: '', data: new Date().toISOString().split('T')[0], cpf: 0, cnpj: 0, visitas: 0 });
   
@@ -58,19 +58,41 @@ const ConsultorCredenciamento: React.FC = () => {
         if (values.cpf === 0 && values.cnpj === 0 && values.visitas === 0) continue;
         
         const dayNumber = (week - 1) * 7 + Number(day);
-        const date = new Date(new Date().getFullYear(), new Date().getMonth(), dayNumber).toISOString().split('T')[0];
+        const date = new Date(ano, mes - 1, dayNumber).toISOString().split('T')[0];
 
-        const { error } = await supabase.from('credenciamentos').upsert({
-            consultor_id: consultorId,
-            data: date,
-            cpf_count: values.cpf,
-            cnpj_count: values.cnpj,
-            visitas: values.visitas
-        }, { onConflict: 'consultor_id,data' });
+        // Check if record exists
+        const { data: existingData } = await supabase
+            .from('credenciamentos')
+            .select('id')
+            .eq('consultor_id', consultorId)
+            .eq('data', date)
+            .single();
+
+        let error;
+        if (existingData) {
+            // Update
+            const res = await supabase.from('credenciamentos').update({
+                cpf_count: values.cpf,
+                cnpj_count: values.cnpj,
+                visitas: values.visitas
+            }).eq('id', existingData.id);
+            error = res.error;
+        } else {
+            // Insert
+            const res = await supabase.from('credenciamentos').insert({
+                consultor_id: consultorId,
+                data: date,
+                cpf_count: values.cpf,
+                cnpj_count: values.cnpj,
+                visitas: values.visitas
+            });
+            error = res.error;
+        }
         
         if (error) console.error('Erro ao salvar:', error);
     }
     alert('Salvo com sucesso!');
+    fetchData(); // Refresh data to reflect changes
   };
 
   useEffect(() => {
@@ -161,19 +183,17 @@ const ConsultorCredenciamento: React.FC = () => {
     return data.filter(d => {
         const matchName = d.consultores.nome.toLowerCase().includes(searchTerm.toLowerCase());
         const matchSupervisor = supervisorFiltro ? d.consultores.supervisor_id === supervisorFiltro : true;
-        return matchName && matchSupervisor;
+        const dDate = new Date(d.data);
+        const matchMes = dDate.getMonth() + 1 === mes;
+        const matchAno = dDate.getFullYear() === ano;
+        return matchName && matchSupervisor && matchMes && matchAno;
     });
-  }, [data, searchTerm, supervisorFiltro]);
+  }, [data, searchTerm, supervisorFiltro, mes, ano]);
 
   const filteredConsultores = useMemo(() => {
     return consultores.filter(c => {
         const matchName = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
-        // For filtering consultants by supervisor, we need to know their supervisor_id.
-        // It seems consultant object has supervisor_id? Wait, fetchConsultores only selects id, nome
-        // Let's check line 86-91
-        // Ah, fetchConsultores line 86: .select('id, nome') - it doesn't have supervisor_id!
-        // I need to update fetchConsultores to include supervisor_id.
-        const matchSupervisor = supervisorFiltro ? (c as any).supervisor_id === supervisorFiltro : true;
+        const matchSupervisor = supervisorFiltro ? c.supervisor_id === supervisorFiltro : true;
         return matchName && matchSupervisor;
     });
   }, [consultores, searchTerm, supervisorFiltro]);
@@ -242,15 +262,31 @@ const ConsultorCredenciamento: React.FC = () => {
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
              {filteredConsultores.map(c => {
                  const consultantDaily = dailyData[c.id] || {};
-                 const totalCred = Object.values(consultantDaily).reduce((sum, day) => sum + day.cpf + day.cnpj, 0);
+                 const totalCPFs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cpf, 0);
+                 const totalCNPJs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cnpj, 0);
+                 const totalVisitas = Object.values(consultantDaily).reduce((sum, day) => sum + day.visitas, 0);
+                 const totalCred = totalCPFs + totalCNPJs;
                  const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
                  const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
                  return (
-                     <div key={c.id} className="flex items-center gap-3 border p-3 rounded-lg">
-                         <div className={`w-4 h-4 rounded-full ${color}`}></div>
-                         <div>
-                            <p className="text-sm font-semibold">{c.nome}</p>
-                            <p className="text-xs text-slate-500">Total Cred: {totalCred}</p>
+                     <div key={c.id} className="border p-4 rounded-lg">
+                         <div className="flex items-center gap-3 mb-2">
+                             <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                             <p className="text-sm font-semibold">{c.nome}</p>
+                         </div>
+                         <div className="grid grid-cols-3 gap-2 text-center">
+                             <div className="text-xs">
+                                 <p className="font-bold text-blue-600">{totalCPFs}</p>
+                                 <p className="text-[10px] text-slate-500">PFs</p>
+                             </div>
+                             <div className="text-xs">
+                                 <p className="font-bold text-indigo-600">{totalCNPJs}</p>
+                                 <p className="text-[10px] text-slate-500">PJs</p>
+                             </div>
+                             <div className="text-xs">
+                                 <p className="font-bold text-emerald-600">{totalVisitas}</p>
+                                 <p className="text-[10px] text-slate-500">Vis</p>
+                             </div>
                          </div>
                      </div>
                  );
