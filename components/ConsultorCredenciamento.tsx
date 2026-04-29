@@ -266,6 +266,8 @@ const ConsultorCredenciamento: React.FC = () => {
                  const totalCNPJs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cnpj, 0);
                  const totalVisitas = Object.values(consultantDaily).reduce((sum, day) => sum + day.visitas, 0);
                  const totalCred = totalCPFs + totalCNPJs;
+                 const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
+                 
                  const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
                  const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
                  return (
@@ -274,18 +276,14 @@ const ConsultorCredenciamento: React.FC = () => {
                              <div className={`w-3 h-3 rounded-full ${color}`}></div>
                              <p className="text-sm font-semibold">{c.nome}</p>
                          </div>
-                         <div className="grid grid-cols-3 gap-2 text-center">
-                             <div className="text-xs">
-                                 <p className="font-bold text-blue-600">{totalCPFs}</p>
-                                 <p className="text-[10px] text-slate-500">PFs</p>
-                             </div>
-                             <div className="text-xs">
-                                 <p className="font-bold text-indigo-600">{totalCNPJs}</p>
-                                 <p className="text-[10px] text-slate-500">PJs</p>
-                             </div>
+                         <div className="grid grid-cols-2 gap-2 text-center">
                              <div className="text-xs">
                                  <p className="font-bold text-emerald-600">{totalVisitas}</p>
-                                 <p className="text-[10px] text-slate-500">Vis</p>
+                                 <p className="text-[10px] text-slate-500">Visitas</p>
+                             </div>
+                             <div className="text-xs">
+                                 <p className="font-bold text-indigo-600">{percPJ}%</p>
+                                 <p className="text-[10px] text-slate-500">% PJ</p>
                              </div>
                          </div>
                      </div>
@@ -323,7 +321,7 @@ const ConsultorCredenciamento: React.FC = () => {
                         const isValid = date.getMonth() === mes - 1;
                         return (
                             <th key={i} className="px-2 py-4 text-center text-xs">
-                                {isValid ? `Dia ${date.getDate()}` : '-'}
+                                {isValid ? date.toLocaleDateString('pt-BR', { weekday: 'short' }) : '-'}
                                 <div className="flex justify-around text-[10px] text-slate-400 mt-1">
                                     <span>PF</span><span>PJ</span><span>Vis</span>
                                 </div>
