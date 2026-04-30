@@ -7,9 +7,10 @@ import GerirConsultores from './GerirConsultores';
 import Devolucoes from './Devolucoes';
 import ConsultorCredenciamento from './ConsultorCredenciamento';
 /* Remoção de AcompanhamentoVendas */
+import AnaliseInteligencia from './AnaliseInteligencia';
 import { Page } from '../types';
 import { AppContext } from '../App';
-import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon, BarChartIcon } from './ui/Icons';
+import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon, BarChartIcon, BrainIcon } from './ui/Icons';
 import { Users } from 'lucide-react';
 
 const LAST_PAGE_KEY = 'xisto_last_page';
@@ -43,6 +44,7 @@ const Layout: React.FC = () => {
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Estoquista'] },
     { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'credenciamentos' as Page, label: 'Credenciamentos', icon: <BarChartIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'analise-inteligencia' as Page, label: 'Inteligência de Negócios', icon: <BrainIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'gerir-consultores' as Page, label: 'Gerir Equipe', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
   ];
 
@@ -92,6 +94,8 @@ const Layout: React.FC = () => {
         return <Devolucoes />;
       case 'credenciamentos':
         return <ConsultorCredenciamento />;
+      case 'analise-inteligencia':
+        return <AnaliseInteligencia />;
       case 'gerir-consultores':
         return <GerirConsultores />;
       default:

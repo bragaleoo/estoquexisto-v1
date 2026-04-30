@@ -37,6 +37,23 @@ const ConsultorCredenciamento: React.FC = () => {
   const [editingCredId, setEditingCredId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState({ cpf: 0, cnpj: 0, visitas: 0 });
 
+  useEffect(() => {
+    const newDailyData: Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>> = {};
+    data.forEach(cred => {
+      const d = new Date(cred.data);
+      if (d.getMonth() + 1 === mes && d.getFullYear() === ano) {
+        const dayOfMonth = d.getDate();
+        if (!newDailyData[cred.consultor_id]) newDailyData[cred.consultor_id] = {};
+        newDailyData[cred.consultor_id][dayOfMonth] = {
+            cpf: cred.cpf_count,
+            cnpj: cred.cnpj_count,
+            visitas: cred.visitas
+        };
+      }
+    });
+    setDailyData(newDailyData);
+  }, [data, mes, ano]);
+
   const handleInputChange = (consultorId: string, day: number, field: 'cpf' | 'cnpj' | 'visitas', value: number) => {
     setDailyData(prev => ({
         ...prev,
@@ -65,17 +82,16 @@ const ConsultorCredenciamento: React.FC = () => {
             .from('credenciamentos')
             .select('id')
             .eq('consultor_id', consultorId)
-            .eq('data', date)
-            .single();
+            .eq('data', date);
 
         let error;
-        if (existingData) {
+        if (existingData && existingData.length > 0) {
             // Update
             const res = await supabase.from('credenciamentos').update({
                 cpf_count: values.cpf,
                 cnpj_count: values.cnpj,
                 visitas: values.visitas
-            }).eq('id', existingData.id);
+            }).eq('id', existingData[0].id);
             error = res.error;
         } else {
             // Insert
@@ -276,10 +292,14 @@ const ConsultorCredenciamento: React.FC = () => {
                              <div className={`w-3 h-3 rounded-full ${color}`}></div>
                              <p className="text-sm font-semibold">{c.nome}</p>
                          </div>
-                         <div className="grid grid-cols-2 gap-2 text-center">
+                         <div className="grid grid-cols-3 gap-2 text-center">
                              <div className="text-xs">
                                  <p className="font-bold text-emerald-600">{totalVisitas}</p>
                                  <p className="text-[10px] text-slate-500">Visitas</p>
+                             </div>
+                             <div className="text-xs">
+                                 <p className="font-bold text-indigo-600">{totalCred}</p>
+                                 <p className="text-[10px] text-slate-500">Total Cred</p>
                              </div>
                              <div className="text-xs">
                                  <p className="font-bold text-indigo-600">{percPJ}%</p>
