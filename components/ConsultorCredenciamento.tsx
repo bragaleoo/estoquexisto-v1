@@ -14,15 +14,40 @@ interface Credenciamento {
   visitas: number;
 }
 
-const WEEKS = [1, 2, 3, 4, 5];
+const getWeeks = (ano: number, mes: number) => {
+    let weeks = [];
+    let date = new Date(ano, mes - 1, 1);
+    
+    // Find first Wednesday
+    while (date.getDay() !== 3) {
+        date.setDate(date.getDate() + 1);
+    }
+    
+    let weekIndex = 1;
+    while (date.getMonth() === mes - 1) {
+        let days = [];
+        let tempDate = new Date(date);
+        for (let i = 0; i < 4; i++) { // Wed, Thu, Fri, Sat
+            if (tempDate.getMonth() === mes - 1) {
+                days.push(new Date(tempDate));
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+        }
+        weeks.push({ id: weekIndex++, days });
+        
+        // Next Wednesday
+        date.setDate(date.getDate() + 7);
+    }
+    return weeks;
+};
 
 const ConsultorCredenciamento: React.FC = () => {
-  const context = useContext(AppContext);
-  const currentUser = context?.currentUser;
-  
   const [semana, setSemana] = useState(1);
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [ano, setAno] = useState(new Date().getFullYear());
+  const weeks = useMemo(() => getWeeks(ano, mes), [ano, mes]);
+  const context = useContext(AppContext);
+  const currentUser = context?.currentUser;
   const [supervisorFiltro, setSupervisorFiltro] = useState('');
   const [data, setData] = useState<Credenciamento[]>([]);
   const [supervisores, setSupervisores] = useState<{id: string, nome: string}[]>([]);
@@ -68,14 +93,15 @@ const ConsultorCredenciamento: React.FC = () => {
   };
 
   const handleSaveRow = async (consultorId: string, week: number) => {
-    const dataToSave = dailyData[consultorId];
-    if (!dataToSave) return;
+    const datesToSave = weeks[week - 1]?.days;
+    if (!datesToSave) return;
     
-    for (const [day, values] of Object.entries(dataToSave)) {
-        if (values.cpf === 0 && values.cnpj === 0 && values.visitas === 0) continue;
+    for (const dateObj of datesToSave) {
+        const day = dateObj.getDate();
+        const values = dailyData[consultorId]?.[day];
+        if (!values || (values.cpf === 0 && values.cnpj === 0 && values.visitas === 0)) continue;
         
-        const dayNumber = (week - 1) * 7 + Number(day);
-        const date = new Date(ano, mes - 1, dayNumber).toISOString().split('T')[0];
+        const date = dateObj.toISOString().split('T')[0];
 
         // Check if record exists
         const { data: existingData } = await supabase
@@ -232,6 +258,13 @@ const ConsultorCredenciamento: React.FC = () => {
             <p className="text-slate-500 mt-1">Acompanhamento de performance operacional</p>
         </div>
           <div className="flex items-center space-x-4">
+             <button onClick={async () => {
+                 if (confirm('Tem certeza que deseja zerar todos os dados?')) {
+                     const { error } = await supabase.from('credenciamentos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                     if (error) alert('Erro ao zerar dados');                
+                     else { alert('Dados zerados!'); fetchData(); }
+                 }
+             }} className="p-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold shadow-sm hover:bg-red-700">Zerar Dados</button>
              <select value={`${mes}-${ano}`} onChange={(e) => {
                  const [m, a] = e.target.value.split('-').map(Number);
                  setMes(m);
@@ -244,7 +277,7 @@ const ConsultorCredenciamento: React.FC = () => {
                  })}
              </select>
             <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
-                {WEEKS.map(w => <option key={w} value={w}>Semana {w}</option>)}
+                {weeks.map(w => <option key={w.id} value={w.id}>Semana {w.id}</option>)}
             </select>
           </div>
       </div>
@@ -335,19 +368,14 @@ const ConsultorCredenciamento: React.FC = () => {
             <thead className="text-xs text-slate-500 uppercase bg-slate-50">
                 <tr>
                     <th className="px-6 py-4">Consultor</th>
-                    {Array.from({length: 7}).map((_, i) => {
-                        const day = (semana - 1) * 7 + i + 1;
-                        const date = new Date(ano, mes - 1, day);
-                        const isValid = date.getMonth() === mes - 1;
-                        return (
-                            <th key={i} className="px-2 py-4 text-center text-xs">
-                                {isValid ? date.toLocaleDateString('pt-BR', { weekday: 'short' }) : '-'}
-                                <div className="flex justify-around text-[10px] text-slate-400 mt-1">
-                                    <span>PF</span><span>PJ</span><span>Vis</span>
-                                </div>
-                            </th>
-                        );
-                    })}
+                    {weeks[semana - 1]?.days.map((date, i) => (
+                        <th key={i} className="px-2 py-4 text-center text-xs">
+                            {date.toLocaleDateString('pt-BR', { weekday: 'short' })}
+                            <div className="flex justify-around text-[10px] text-slate-400 mt-1">
+                                <span>PF</span><span>PJ</span><span>Vis</span>
+                            </div>
+                        </th>
+                    ))}
                 </tr>
             </thead>
             <tbody>
@@ -355,16 +383,14 @@ const ConsultorCredenciamento: React.FC = () => {
                         {filteredConsultores.map(c => (
                             <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
                                 <td className="px-6 py-4 font-semibold text-slate-900">{c.nome}</td>
-                                {Array.from({length: 7}).map((_, i) => {
-                                    const day = (semana - 1) * 7 + i + 1;
-                                    const date = new Date(ano, mes - 1, day);
-                                    const isValid = date.getMonth() === mes - 1;
+                                {weeks[semana - 1]?.days.map((date, i) => {
+                                    const day = date.getDate();
                                     return (
                                         <td key={i} className="px-1 py-4 text-center">
                                             <div className="flex gap-0.5 justify-center">
-                                                <input type="number" min="0" disabled={!isValid} className="w-10 p-1 border rounded text-center text-xs" placeholder="PF" value={dailyData[c.id]?.[day]?.cpf || ''} onChange={e => handleInputChange(c.id, day, 'cpf', Number(e.target.value))} />
-                                                <input type="number" min="0" disabled={!isValid} className="w-10 p-1 border rounded text-center text-xs" placeholder="PJ" value={dailyData[c.id]?.[day]?.cnpj || ''} onChange={e => handleInputChange(c.id, day, 'cnpj', Number(e.target.value))} />
-                                                <input type="number" min="0" disabled={!isValid} className="w-10 p-1 border rounded text-center text-xs" placeholder="Vis" value={dailyData[c.id]?.[day]?.visitas || ''} onChange={e => handleInputChange(c.id, day, 'visitas', Number(e.target.value))} />
+                                                <input type="number" min="0" className="w-10 p-1 border rounded text-center text-xs" placeholder="PF" value={dailyData[c.id]?.[day]?.cpf || ''} onChange={e => handleInputChange(c.id, day, 'cpf', Number(e.target.value))} />
+                                                <input type="number" min="0" className="w-10 p-1 border rounded text-center text-xs" placeholder="PJ" value={dailyData[c.id]?.[day]?.cnpj || ''} onChange={e => handleInputChange(c.id, day, 'cnpj', Number(e.target.value))} />
+                                                <input type="number" min="0" className="w-10 p-1 border rounded text-center text-xs" placeholder="Vis" value={dailyData[c.id]?.[day]?.visitas || ''} onChange={e => handleInputChange(c.id, day, 'visitas', Number(e.target.value))} />
                                             </div>
                                         </td>
                                     );
