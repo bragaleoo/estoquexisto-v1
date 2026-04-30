@@ -44,7 +44,7 @@ const Layout: React.FC = () => {
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Estoquista'] },
     { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'credenciamentos' as Page, label: 'Credenciamentos', icon: <BarChartIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
-    { id: 'analise-inteligencia' as Page, label: 'Inteligência de Negócios', icon: <BrainIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'analise-inteligencia' as Page, label: 'Inteligência de Negócios (em andamento)', icon: <BrainIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'gerir-consultores' as Page, label: 'Gerir Equipe', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
   ];
 

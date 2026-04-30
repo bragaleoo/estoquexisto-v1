@@ -62,6 +62,17 @@ const AnaliseInteligencia: React.FC = () => {
             </div>
           ))}
         </div>
+        <div className="mt-6 border-t border-slate-200 pt-4">
+          <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Legenda</h3>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600">
+            <li><strong>Total D U:</strong> Total de dias úteis do mês.</li>
+            <li><strong>Du Passados:</strong> Dias úteis decorridos até hoje.</li>
+            <li><strong>Hc:</strong> Headcount (Qtd. de consultores).</li>
+            <li><strong>Fat Real:</strong> Faturamento real acumulado (R$).</li>
+            <li><strong>Qtd Vendas:</strong> Vendas totais acumuladas.</li>
+            <li><strong>Valor Parcelado/Qtd CNPJs:</strong> Dados para registro/exibição.</li>
+          </ul>
+        </div>
       </div>
 
       {resultados && (
