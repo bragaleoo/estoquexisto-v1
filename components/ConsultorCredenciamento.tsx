@@ -15,30 +15,33 @@ interface Credenciamento {
 }
 
 const getWeeks = (ano: number, mes: number) => {
-    let weeks = [];
+    let allDays = [];
     let date = new Date(ano, mes - 1, 1);
     
-    // Find first Wednesday
-    while (date.getDay() !== 3) {
+    // Fill all days of the month
+    while (date.getMonth() === mes - 1) {
+        allDays.push(new Date(date));
         date.setDate(date.getDate() + 1);
     }
     
-    let weekIndex = 1;
-    while (date.getMonth() === mes - 1) {
-        let days = [];
-        let tempDate = new Date(date);
-        for (let i = 0; i < 4; i++) { // Wed, Thu, Fri, Sat
-            if (tempDate.getMonth() === mes - 1) {
-                days.push(new Date(tempDate));
-            }
-            tempDate.setDate(tempDate.getDate() + 1);
-        }
-        weeks.push({ id: weekIndex++, days });
+    const weeksMap = new Map();
+    
+    allDays.forEach(d => {
+        const tempDate = new Date(d);
+        // Get the Sunday of this day's week
+        const day = tempDate.getDay();
+        const diff = tempDate.getDate() - day;
+        const sunday = new Date(tempDate.setDate(diff));
         
-        // Next Wednesday
-        date.setDate(date.getDate() + 7);
-    }
-    return weeks;
+        // Key based on Sunday of the week
+        const key = `${sunday.getFullYear()}-${sunday.getMonth()}-${sunday.getDate()}`;
+        
+        if (!weeksMap.has(key)) weeksMap.set(key, []);
+        weeksMap.get(key).push(d);
+    });
+    
+    // Convert map values to array
+    return Array.from(weeksMap.values()).map((days, i) => ({ id: i + 1, days }));
 };
 
 const ConsultorCredenciamento: React.FC = () => {
@@ -370,7 +373,7 @@ const ConsultorCredenciamento: React.FC = () => {
                     <th className="px-6 py-4">Consultor</th>
                     {weeks[semana - 1]?.days.map((date, i) => (
                         <th key={i} className="px-2 py-4 text-center text-xs">
-                            {date.toLocaleDateString('pt-BR', { weekday: 'short' })}
+                            {date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ({date.toLocaleDateString('pt-BR', { weekday: 'short' })})
                             <div className="flex justify-around text-[10px] text-slate-400 mt-1">
                                 <span>PF</span><span>PJ</span><span>Vis</span>
                             </div>
