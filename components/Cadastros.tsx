@@ -1,5 +1,6 @@
 
 import React, { useState, useContext, useMemo, useEffect } from 'react';
+import stringSimilarity from 'string-similarity';
 import { AppContext } from '../App';
 import Modal from './ui/Modal';
 import ImportWizard from './ImportWizard';
@@ -66,6 +67,22 @@ const Cadastros: React.FC = () => {
 
     const [editingMachine, setEditingMachine] = useState<Maquina | null>(null);
     const [editData, setEditData] = useState({ supervisor: '', consultor: '', regiao: '' as Regiao | '' });
+    const [batchConsultorSuggestion, setBatchConsultorSuggestion] = useState<string | null>(null);
+    const [editConsultorSuggestion, setEditConsultorSuggestion] = useState<string | null>(null);
+
+    const checkSimilarity = (input: string, setSuggestion: (s: string | null) => void) => {
+        const suggestion = getSimilaritySuggestion(input, listaConsultores);
+        setSuggestion(suggestion);
+    };
+
+    const getSimilaritySuggestion = (input: string, choices: string[]) => {
+        if (input.length < 3) return null;
+        const matches = stringSimilarity.findBestMatch(input, choices);
+        if (matches.bestMatch.rating > 0.7 && matches.bestMatch.target !== input) {
+            return matches.bestMatch.target;
+        }
+        return null;
+    };
 
     if (!context) return null;
     const { pedidos, maquinas, registrarMaquinaManual, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser, triggerRefresh } = context;
@@ -534,7 +551,19 @@ const Cadastros: React.FC = () => {
                                     return true;
                                 }).map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                             </select>
-                            <input type="text" list="batch-consultor-list" placeholder="CONSULTOR" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={batchData.consultor} onChange={e => setBatchData({...batchData, consultor: e.target.value.toUpperCase()})} />
+                            <input type="text" list="batch-consultor-list" placeholder="CONSULTOR" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" value={batchData.consultor} onChange={e => {
+                                const val = e.target.value.toUpperCase();
+                                setBatchData({...batchData, consultor: val});
+                                checkSimilarity(val, setBatchConsultorSuggestion);
+                            }} />
+                            {batchConsultorSuggestion && (
+                                <div className="text-[10px] text-amber-700 bg-amber-50 p-2 rounded-lg cursor-pointer" onClick={() => {
+                                    setBatchData({...batchData, consultor: batchConsultorSuggestion});
+                                    setBatchConsultorSuggestion(null);
+                                }}>
+                                   Encontramos nome parecido: {batchConsultorSuggestion}. Clicar aqui para usar.
+                                </div>
+                            )}
                             <datalist id="batch-consultor-list">{listaConsultores.map(nome => <option key={nome} value={nome} />)}</datalist>
                             <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.dataAtribuicao} onChange={e => setBatchData({...batchData, dataAtribuicao: e.target.value})} />
                         </>
@@ -567,7 +596,20 @@ const Cadastros: React.FC = () => {
                         <option value="">OPERAÇÃO *</option>
                         {SUPERVISORES.map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                     </select>
-                    <input type="text" list="edit-consultor-list" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 uppercase" value={editData.consultor} onChange={e => setEditData({...editData, consultor: e.target.value.toUpperCase()})} />
+                    <input type="text" list="edit-consultor-list" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 uppercase" value={editData.consultor} onChange={e => {
+                        const val = e.target.value.toUpperCase();
+                        setEditData({...editData, consultor: val});
+                        checkSimilarity(val, setEditConsultorSuggestion);
+                    }} />
+                    {editConsultorSuggestion && (
+                        <div className="text-[10px] text-amber-700 bg-amber-50 p-2 rounded-lg cursor-pointer" onClick={() => {
+                            setEditData({...editData, consultor: editConsultorSuggestion});
+                            setEditConsultorSuggestion(null);
+                        }}>
+                            Encontramos nome parecido: {editConsultorSuggestion}. Clicar aqui para usar.
+                        </div>
+                    )}
+                    <datalist id="edit-consultor-list">{listaConsultores.map(nome => <option key={nome} value={nome} />)}</datalist>
                     <button onClick={handleSaveEdit} className="w-full bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl">Salvar</button>
                     <button onClick={handleMakeAvailable} className="w-full bg-slate-900 text-white py-2 rounded-xl font-black uppercase text-[10px]">Tornar Disponível</button>
                  </div>

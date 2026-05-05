@@ -8,6 +8,7 @@ import Devolucoes from './Devolucoes';
 import ConsultorCredenciamento from './ConsultorCredenciamento';
 /* Remoção de AcompanhamentoVendas */
 import AnaliseInteligencia from './AnaliseInteligencia';
+import LimpezaDados from './LimpezaDados';
 import { Page } from '../types';
 import { AppContext } from '../App';
 import { DashboardIcon, ListIcon, FileTextIcon, LogoutIcon, XistoLogo, XIcon, HistoryIcon, RefreshCwIcon, BarChartIcon, BrainIcon } from './ui/Icons';
@@ -45,6 +46,7 @@ const Layout: React.FC = () => {
     { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'credenciamentos' as Page, label: 'Credenciamentos', icon: <BarChartIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'analise-inteligencia' as Page, label: 'Inteligência de Negócios (em andamento)', icon: <BrainIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'limpeza-dados' as Page, label: 'Limpeza de Dados', icon: <Users className="w-5 h-5" />, roles: ['Administrador'] },
     { id: 'gerir-consultores' as Page, label: 'Gerir Equipe', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
   ];
 
@@ -96,6 +98,8 @@ const Layout: React.FC = () => {
         return <ConsultorCredenciamento />;
       case 'analise-inteligencia':
         return <AnaliseInteligencia />;
+      case 'limpeza-dados':
+        return <LimpezaDados />;
       case 'gerir-consultores':
         return <GerirConsultores />;
       default:
