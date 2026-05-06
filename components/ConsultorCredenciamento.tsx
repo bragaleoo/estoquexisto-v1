@@ -48,6 +48,7 @@ const ConsultorCredenciamento: React.FC = () => {
   const [semana, setSemana] = useState(1);
   const [mes, setMes] = useState(new Date().getMonth() + 1);
   const [ano, setAno] = useState(new Date().getFullYear());
+  const [activeTab, setActiveTab] = useState<'acompanhamento' | 'relatorios'>('acompanhamento');
   const weeks = useMemo(() => getWeeks(ano, mes), [ano, mes]);
   const context = useContext(AppContext);
   const currentUser = context?.currentUser;
@@ -101,9 +102,7 @@ const ConsultorCredenciamento: React.FC = () => {
     
     for (const dateObj of datesToSave) {
         const day = dateObj.getDate();
-        const values = dailyData[consultorId]?.[day];
-        if (!values || (values.cpf === 0 && values.cnpj === 0 && values.visitas === 0)) continue;
-        
+        const values = dailyData[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
         const date = dateObj.toISOString().split('T')[0];
 
         // Check if record exists
@@ -112,6 +111,9 @@ const ConsultorCredenciamento: React.FC = () => {
             .select('id')
             .eq('consultor_id', consultorId)
             .eq('data', date);
+
+        // If it doesn't exist and all values are 0, skip
+        if ((!existingData || existingData.length === 0) && values.cpf === 0 && values.cnpj === 0 && values.visitas === 0) continue;
 
         let error;
         if (existingData && existingData.length > 0) {
@@ -285,70 +287,79 @@ const ConsultorCredenciamento: React.FC = () => {
           </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {[
-            { label: 'Total CPFs', value: stats.cpf, icon: Users, color: 'text-blue-600' },
-            { label: 'Total CNPJs', value: stats.cnpj, icon: Target, color: 'text-indigo-600' },
-            { label: 'Total Visitas', value: stats.visitas, icon: TrendingUp, color: 'text-emerald-600' },
-        ].map(stat => (
-            <div key={stat.label} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <div className="flex items-center space-x-4">
-                    <div className={`p-3 rounded-xl bg-slate-100 ${stat.color}`}>
-                        <stat.icon className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                        <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+      {/* Tabs */}
+      <div className="flex border-b border-slate-200 mb-6">
+        <button className={`px-6 py-2 font-semibold text-sm ${activeTab === 'acompanhamento' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500'}`} onClick={() => setActiveTab('acompanhamento')}>Acompanhamento</button>
+        <button className={`px-6 py-2 font-semibold text-sm ${activeTab === 'relatorios' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500'}`} onClick={() => setActiveTab('relatorios')}>Relatórios</button>
+      </div>
+
+      {activeTab === 'relatorios' ? (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {[
+                { label: 'Total CPFs', value: stats.cpf, icon: Users, color: 'text-blue-600' },
+                { label: 'Total CNPJs', value: stats.cnpj, icon: Target, color: 'text-indigo-600' },
+                { label: 'Total Visitas', value: stats.visitas, icon: TrendingUp, color: 'text-emerald-600' },
+            ].map(stat => (
+                <div key={stat.label} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="flex items-center space-x-4">
+                        <div className={`p-3 rounded-xl bg-slate-100 ${stat.color}`}>
+                            <stat.icon className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                        </div>
                     </div>
                 </div>
+            ))}
+          </div>
+
+          {/* Table Section */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+            <div className="p-6 border-b border-slate-200">
+                <h2 className="text-lg font-bold text-slate-900">Relatório de Performance (KPIs)</h2>
             </div>
-        ))}
-      </div>
-
-      {/* Table Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-        <div className="p-6 border-b border-slate-200">
-            <h2 className="text-lg font-bold text-slate-900">Relatório de Performance (KPIs)</h2>
-        </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-             {filteredConsultores.map(c => {
-                 const consultantDaily = dailyData[c.id] || {};
-                 const totalCPFs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cpf, 0);
-                 const totalCNPJs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cnpj, 0);
-                 const totalVisitas = Object.values(consultantDaily).reduce((sum, day) => sum + day.visitas, 0);
-                 const totalCred = totalCPFs + totalCNPJs;
-                 const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
-                 
-                 const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
-                 const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
-                 return (
-                     <div key={c.id} className="border p-4 rounded-lg">
-                         <div className="flex items-center gap-3 mb-2">
-                             <div className={`w-3 h-3 rounded-full ${color}`}></div>
-                             <p className="text-sm font-semibold">{c.nome}</p>
-                         </div>
-                         <div className="grid grid-cols-3 gap-2 text-center">
-                             <div className="text-xs">
-                                 <p className="font-bold text-emerald-600">{totalVisitas}</p>
-                                 <p className="text-[10px] text-slate-500">Visitas</p>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                 {filteredConsultores.map(c => {
+                     const consultantDaily = dailyData[c.id] || {};
+                     const totalCPFs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cpf, 0);
+                     const totalCNPJs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cnpj, 0);
+                     const totalVisitas = Object.values(consultantDaily).reduce((sum, day) => sum + day.visitas, 0);
+                     const totalCred = totalCPFs + totalCNPJs;
+                     const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
+                     
+                     const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
+                     const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
+                     return (
+                         <div key={c.id} className="border p-4 rounded-lg">
+                             <div className="flex items-center gap-3 mb-2">
+                                 <div className={`w-3 h-3 rounded-full ${color}`}></div>
+                                 <p className="text-sm font-semibold">{c.nome}</p>
                              </div>
-                             <div className="text-xs">
-                                 <p className="font-bold text-indigo-600">{totalCred}</p>
-                                 <p className="text-[10px] text-slate-500">Total Cred</p>
-                             </div>
-                             <div className="text-xs">
-                                 <p className="font-bold text-indigo-600">{percPJ}%</p>
-                                 <p className="text-[10px] text-slate-500">% PJ</p>
+                             <div className="grid grid-cols-3 gap-2 text-center">
+                                 <div className="text-xs">
+                                     <p className="font-bold text-emerald-600">{totalVisitas}</p>
+                                     <p className="text-[10px] text-slate-500">Visitas</p>
+                                 </div>
+                                 <div className="text-xs">
+                                     <p className="font-bold text-indigo-600">{totalCred}</p>
+                                     <p className="text-[10px] text-slate-500">Total Cred</p>
+                                 </div>
+                                 <div className="text-xs">
+                                     <p className="font-bold text-indigo-600">{percPJ}%</p>
+                                     <p className="text-[10px] text-slate-500">% PJ</p>
+                                 </div>
                              </div>
                          </div>
-                     </div>
-                 );
-             })}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                     );
+                 })}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-200 flex justify-between items-center">
             <div className="flex gap-4 w-full">
               <div className="relative w-full max-w-sm">
@@ -406,6 +417,7 @@ const ConsultorCredenciamento: React.FC = () => {
             </tbody>
         </table>
       </div>
+      )}
 
        {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
