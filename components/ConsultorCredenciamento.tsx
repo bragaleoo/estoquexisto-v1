@@ -150,7 +150,7 @@ const ConsultorCredenciamento: React.FC = () => {
 
   const fetchSupervisores = async () => {
     const { data } = await supabase.from('supervisores').select('id, nome');
-    if(data) setSupervisores(data);
+    if(data) setSupervisores(data.sort((a, b) => a.nome.localeCompare(b.nome)));
   };
 
   const fetchConsultores = async () => {
@@ -242,7 +242,7 @@ const ConsultorCredenciamento: React.FC = () => {
         const matchName = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
         const matchSupervisor = supervisorFiltro ? c.supervisor_id === supervisorFiltro : true;
         return matchName && matchSupervisor;
-    });
+    }).sort((a, b) => a.nome.localeCompare(b.nome));
   }, [consultores, searchTerm, supervisorFiltro]);
 
   const stats = useMemo(() => {
@@ -307,6 +307,10 @@ const ConsultorCredenciamento: React.FC = () => {
             <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
                 {weeks.map(w => <option key={w.id} value={w.id}>Semana {w.id}</option>)}
             </select>
+             <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                 <option value="">Todas Supervisões</option>
+                 {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
           </div>
       </div>
 
@@ -388,9 +392,8 @@ const ConsultorCredenciamento: React.FC = () => {
         </>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-            <div className="flex gap-4 w-full">
-              <div className="relative w-full max-w-sm">
+          <div className="p-6 border-b border-slate-200">
+               <div className="relative w-full max-w-sm">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                   <input 
                       type="text" 
@@ -400,12 +403,8 @@ const ConsultorCredenciamento: React.FC = () => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                   />
               </div>
-              <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
-                 <option value="">Todas Supervisões</option>
-                 {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-              </select>
-            </div>
         </div>
+
         <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50">
                 <tr>
