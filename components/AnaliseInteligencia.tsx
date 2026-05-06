@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../supabase';
 
 interface InteligenciaInputs {
+  referencia: string;
   totalDiasUteis: number;
   diasUteisDecorridos: number;
   headcount: number;
@@ -19,6 +20,7 @@ const AnaliseInteligencia: React.FC = () => {
   const [inputs, setInputs] = useState<Record<string, InteligenciaInputs>>({});
   const [isSaving, setIsSaving] = useState(false);
   const defaultInputs: InteligenciaInputs = {
+    referencia: new Date().toISOString().slice(0, 7), // YYYY-MM
     totalDiasUteis: 22,
     diasUteisDecorridos: 10,
     headcount: 5,
@@ -49,6 +51,7 @@ const AnaliseInteligencia: React.FC = () => {
         setInputs(prev => ({
             ...prev,
             [supervisorId]: {
+                referencia: data.referencia,
                 totalDiasUteis: data.total_dias_uteis,
                 diasUteisDecorridos: data.dias_uteis_decorridos,
                 headcount: data.headcount,
@@ -67,6 +70,7 @@ const AnaliseInteligencia: React.FC = () => {
     const data = currentInputs;
     const { error } = await supabase.from('inteligencia_dados').upsert({ 
         supervisor_id: selectedSupervisor,
+        referencia: data.referencia,
         total_dias_uteis: data.totalDiasUteis,
         dias_uteis_decorridos: data.diasUteisDecorridos,
         headcount: data.headcount,
@@ -106,7 +110,7 @@ const AnaliseInteligencia: React.FC = () => {
     return calcularResultados(currentInputs);
   }, [currentInputs]);
 
-  const updateInput = (key: keyof InteligenciaInputs, value: number) => {
+  const updateInput = (key: keyof InteligenciaInputs, value: string | number) => {
     setInputs(prev => ({
         ...prev,
         [selectedSupervisor]: {
@@ -117,6 +121,7 @@ const AnaliseInteligencia: React.FC = () => {
   };
 
   const labels: Record<keyof InteligenciaInputs, string> = {
+      referencia: 'Mês de Referência (YYYY-MM)',
       totalDiasUteis: 'Total de Dias Úteis',
       diasUteisDecorridos: 'Dias Úteis Decorridos',
       headcount: 'Headcount (Qtd. de consultores)',
@@ -153,9 +158,9 @@ const AnaliseInteligencia: React.FC = () => {
                         <div key={key}>
                         <label className="block text-xs font-semibold text-slate-700">{labels[key]}</label>
                         <input
-                            type="number"
+                            type={key === 'referencia' ? 'text' : 'number'}
                             value={currentInputs[key]}
-                            onChange={(e) => updateInput(key, Number(e.target.value))}
+                            onChange={(e) => updateInput(key, key === 'referencia' ? e.target.value as any : Number(e.target.value))}
                             className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
                         />
                         </div>
