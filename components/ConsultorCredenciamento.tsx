@@ -253,6 +253,29 @@ const ConsultorCredenciamento: React.FC = () => {
     }), { cpf: 0, cnpj: 0, visitas: 0 });
   }, [filteredData]);
 
+  const monthStats = useMemo(() => {
+      const totalCred = stats.cpf + stats.cnpj;
+      const percPJ = totalCred > 0 ? ((stats.cnpj / totalCred) * 100).toFixed(1) : '0';
+      return { totalCred, percPJ, visitas: stats.visitas };
+  }, [stats]);
+
+  const weekStats = useMemo(() => {
+      const selectedWeekDates = weeks[semana - 1]?.days || [];
+      const dateStrings = selectedWeekDates.map(d => d.toISOString().split('T')[0]);
+      
+      const filteredWeekData = data.filter(d => dateStrings.includes(d.data));
+      
+      const s = filteredWeekData.reduce((acc, curr) => ({
+          cpf: acc.cpf + (curr.cpf_count || 0),
+          cnpj: acc.cnpj + (curr.cnpj_count || 0),
+          visitas: acc.visitas + (curr.visitas || 0)
+      }), { cpf: 0, cnpj: 0, visitas: 0 });
+      
+      const totalCred = s.cpf + s.cnpj;
+      const percPJ = totalCred > 0 ? ((s.cnpj / totalCred) * 100).toFixed(1) : '0';
+      return { totalCred, percPJ, visitas: s.visitas };
+  }, [data, weeks, semana]);
+
   if(loading) return <div className="p-10 text-center">Carregando painel de credenciamentos...</div>;
 
   return (
@@ -296,20 +319,25 @@ const ConsultorCredenciamento: React.FC = () => {
       {activeTab === 'relatorios' ? (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {[
-                { label: 'Total CPFs', value: stats.cpf, icon: Users, color: 'text-blue-600' },
-                { label: 'Total CNPJs', value: stats.cnpj, icon: Target, color: 'text-indigo-600' },
-                { label: 'Total Visitas', value: stats.visitas, icon: TrendingUp, color: 'text-emerald-600' },
-            ].map(stat => (
-                <div key={stat.label} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <div className="flex items-center space-x-4">
-                        <div className={`p-3 rounded-xl bg-slate-100 ${stat.color}`}>
-                            <stat.icon className="w-6 h-6" />
+                { label: 'Resumo do Mês', stats: monthStats },
+                { label: 'Resumo da Semana', stats: weekStats },
+            ].map(block => (
+                <div key={block.label} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h3 className="font-bold text-lg mb-4 text-slate-800">{block.label}</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-3 bg-slate-50 rounded-xl">
+                            <p className="text-xs text-slate-500 font-medium">Creds</p>
+                            <p className="text-xl font-bold text-indigo-600">{block.stats.totalCred}</p>
                         </div>
-                        <div>
-                            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                            <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                        <div className="text-center p-3 bg-slate-50 rounded-xl">
+                            <p className="text-xs text-slate-500 font-medium">% PJ</p>
+                            <p className="text-xl font-bold text-indigo-600">{block.stats.percPJ}%</p>
+                        </div>
+                        <div className="text-center p-3 bg-slate-50 rounded-xl">
+                            <p className="text-xs text-slate-500 font-medium">Visitas</p>
+                            <p className="text-xl font-bold text-emerald-600">{block.stats.visitas}</p>
                         </div>
                     </div>
                 </div>
