@@ -69,9 +69,9 @@ const ConsultorCredenciamento: React.FC = () => {
   useEffect(() => {
     const newDailyData: Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>> = {};
     data.forEach(cred => {
-      const d = new Date(cred.data);
-      if (d.getMonth() + 1 === mes && d.getFullYear() === ano) {
-        const dayOfMonth = d.getDate();
+      const [y, m, d] = cred.data.split('-').map(Number);
+      if (m === mes && y === ano) {
+        const dayOfMonth = d;
         if (!newDailyData[cred.consultor_id]) newDailyData[cred.consultor_id] = {};
         newDailyData[cred.consultor_id][dayOfMonth] = {
             cpf: cred.cpf_count,
