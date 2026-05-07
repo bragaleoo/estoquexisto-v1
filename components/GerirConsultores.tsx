@@ -44,7 +44,13 @@ const GerirConsultores: React.FC = () => {
 
     const fetchSupervisores = async () => {
         const { data } = await supabase.from('supervisores').select('*');
-        if (data) setSupervisores(data);
+        if (data) {
+            const formattedData = data.map((s: any) => ({
+                ...s,
+                nome: s.nome.includes(' - ') ? s.nome.split(' - ')[1].trim() : s.nome
+            }));
+            setSupervisores(formattedData.sort((a, b) => a.nome.localeCompare(b.nome)));
+        }
     };
 
     const fetchConsultores = async (supervisorId: string) => {
