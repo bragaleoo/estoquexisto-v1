@@ -150,7 +150,13 @@ const ConsultorCredenciamento: React.FC = () => {
 
   const fetchSupervisores = async () => {
     const { data } = await supabase.from('supervisores').select('id, nome');
-    if(data) setSupervisores(data.sort((a, b) => a.nome.localeCompare(b.nome)));
+    if (data) {
+        const formattedData = data.map(s => ({
+            id: s.id,
+            nome: s.nome.includes(' - ') ? s.nome.split(' - ')[1].trim() : s.nome
+        }));
+        setSupervisores(formattedData.sort((a, b) => a.nome.localeCompare(b.nome)));
+    }
   };
 
   const fetchConsultores = async () => {
