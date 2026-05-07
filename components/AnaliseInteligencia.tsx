@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { DollarSign, Target, Activity, Calendar } from 'lucide-react';
 
 interface InteligenciaInputs {
   referencia: string;
@@ -184,75 +186,215 @@ const AnaliseInteligencia: React.FC = () => {
                 </>
             )}
             {selectedSupervisor && resultados && (
-                <div className="mt-8 pt-6 border-t border-slate-200">
-                <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-4">Relatório de Desempenho</h2>
-                
-                <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Métrica</th>
-                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Real</th>
-                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Projetado/Meta</th>
-                    </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
-                    <tr>
-                        <td className="px-6 py-4 text-xs">Faturamento</td>
-                        <td className="px-6 py-4 text-xs text-right">{currentInputs.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                        <td className="px-6 py-4 text-xs text-right font-bold">{resultados.projFaturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                    </tr>
-                    <tr>
-                        <td className="px-6 py-4 text-xs">Vendas (Meta 0.40)</td>
-                        <td className="px-6 py-4 text-xs text-right">{currentInputs.quantidadeVendas}</td>
-                        <td className="px-6 py-4 text-xs text-right font-bold">{Math.round(resultados.metaVendas040)}</td>
-                    </tr>
-                    </tbody>
-                </table>
+                <div className="mt-10 pt-8 border-t border-slate-200">
+                  <h2 className="text-xl font-black text-slate-800 tracking-tight mb-6">Dashboard de Desempenho</h2>
+                  
+                  {/* KPI Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                      {/* Faturamento */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-4">
+                              <p className="text-sm font-bold text-slate-500 uppercase">Faturamento Real</p>
+                              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                  <DollarSign size={16} strokeWidth={3} />
+                              </div>
+                          </div>
+                          <div>
+                              <p className="text-2xl font-black text-slate-900">{currentInputs.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                              <p className="text-xs text-slate-500 mt-1">Projeção: {resultados.projFaturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          </div>
+                      </div>
 
-                <div className="p-4 mt-6 bg-indigo-50 rounded-lg border border-indigo-100">
-                    <p className="text-sm text-indigo-900 font-medium">
-                    Produtividade Atual: <span className="font-bold">{resultados.produtividadeAtual.toFixed(2)}</span>
-                    </p>
-                    {resultados.produtividadeAtual < 0.33 && (
-                    <p className="text-sm text-red-600 font-bold mt-2">ALERTA: Produtividade abaixo de 0.33!</p>
-                    )}
-                    <p className="text-sm text-indigo-800 mt-2">
-                    Para atingir a meta de 0.40, a equipe precisa realizar <span className="font-bold">{resultados.necessidadeDiaria040.toFixed(1)}</span> vendas/dia.
-                    </p>
-                </div>
+                      {/* Vendas */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                          <div className="flex items-center justify-between mb-4">
+                              <p className="text-sm font-bold text-slate-500 uppercase">Vendas Realizadas</p>
+                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                                  <Target size={16} strokeWidth={3} />
+                              </div>
+                          </div>
+                          <div>
+                              <p className="text-2xl font-black text-slate-900">{currentInputs.quantidadeVendas}</p>
+                              <p className="text-xs text-slate-500 mt-1">Meta Mínima (0.40): {Math.round(resultados.metaVendas040)}</p>
+                          </div>
+                      </div>
+
+                      {/* Produtividade */}
+                      <div className={`p-5 rounded-2xl border flex flex-col justify-between ${resultados.produtividadeAtual >= 0.40 ? 'bg-emerald-50 border-emerald-100' : resultados.produtividadeAtual >= 0.33 ? 'bg-amber-50 border-amber-100' : 'bg-red-50 border-red-100'}`}>
+                          <div className="flex items-center justify-between mb-4">
+                              <p className={`text-sm font-bold uppercase ${resultados.produtividadeAtual >= 0.40 ? 'text-emerald-700' : resultados.produtividadeAtual >= 0.33 ? 'text-amber-700' : 'text-red-700'}`}>Produtividade</p>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${resultados.produtividadeAtual >= 0.40 ? 'bg-emerald-200 text-emerald-800' : resultados.produtividadeAtual >= 0.33 ? 'bg-amber-200 text-amber-800' : 'bg-red-200 text-red-800'}`}>
+                                  <Activity size={16} strokeWidth={3} />
+                              </div>
+                          </div>
+                          <div>
+                              <p className={`text-2xl font-black ${resultados.produtividadeAtual >= 0.40 ? 'text-emerald-900' : resultados.produtividadeAtual >= 0.33 ? 'text-amber-900' : 'text-red-900'}`}>{resultados.produtividadeAtual.toFixed(2)}</p>
+                              <p className={`text-xs mt-1 font-semibold ${resultados.produtividadeAtual >= 0.40 ? 'text-emerald-600' : resultados.produtividadeAtual >= 0.33 ? 'text-amber-600' : 'text-red-600'}`}>
+                                  {resultados.produtividadeAtual >= 0.40 ? 'Meta atingida!' : resultados.produtividadeAtual >= 0.33 ? 'Atenção: Próximo da zona de risco.' : 'ALERTA: Abaixo da meta!'}
+                              </p>
+                          </div>
+                      </div>
+
+                      {/* Ritmo / Necessidade Diária */}
+                      <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-sm flex flex-col justify-between text-white">
+                          <div className="flex items-center justify-between mb-4">
+                              <p className="text-sm font-bold text-slate-400 uppercase">Necessidade Diária</p>
+                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-300">
+                                  <Calendar size={16} strokeWidth={3} />
+                              </div>
+                          </div>
+                          <div>
+                              <p className="text-2xl font-black">{resultados.necessidadeDiaria040.toFixed(1)} <span className="text-base font-medium text-slate-400">/dia</span></p>
+                              <p className="text-xs text-slate-400 mt-1">Para bater a meta 0.40</p>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Gráficos */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                          <h3 className="text-sm font-bold text-slate-500 uppercase mb-6">Comparativo de Vendas</h3>
+                          <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={[{ name: 'Vendas', Realizado: currentInputs.quantidadeVendas, Meta: Math.round(resultados.metaVendas040) }]}>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                      <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
+                                      <YAxis tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
+                                      <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                      <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '10px'}} />
+                                      <Bar dataKey="Realizado" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                                      <Bar dataKey="Meta" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                                  </BarChart>
+                              </ResponsiveContainer>
+                          </div>
+                      </div>
+
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                          <h3 className="text-sm font-bold text-slate-500 uppercase mb-6">Projeção de Faturamento</h3>
+                          <div className="h-64">
+                              <ResponsiveContainer width="100%" height="100%">
+                                  <BarChart data={[{ name: 'Faturamento', Realizado: currentInputs.faturamentoReal, Projetado: resultados.projFaturamento }]}>
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                      <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
+                                      <YAxis tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} tickFormatter={(value) => `R$ ${value.toLocaleString('pt-BR')}`} />
+                                      <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`} />
+                                      <Legend iconType="circle" wrapperStyle={{fontSize: '12px', paddingTop: '10px'}} />
+                                      <Bar dataKey="Realizado" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                                      <Bar dataKey="Projetado" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                                  </BarChart>
+                              </ResponsiveContainer>
+                          </div>
+                      </div>
+                  </div>
                 </div>
             )}
         </div>
       ) : (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-6">Consolidado de Equipes</h2>
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Equipe</th>
-                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Faturamento (Real)</th>
-                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Vendas</th>
-                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Produtividade</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
-                        {supervisores.map(s => {
-                            const data = inputs[s.id];
-                            const res = data ? calcularResultados(data) : null;
-                            return (
-                                <tr key={s.id}>
-                                    <td className="px-6 py-4 text-sm font-medium text-slate-900">{s.nome}</td>
-                                    <td className="px-6 py-4 text-sm text-right text-slate-600">{data ? data.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}</td>
-                                    <td className="px-6 py-4 text-sm text-right text-slate-600">{data ? data.quantidadeVendas : '-'}</td>
-                                    <td className="px-6 py-4 text-sm text-right text-slate-900 font-bold">{res ? res.produtividadeAtual.toFixed(2) : '-'}</td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        (() => {
+            const chartData = supervisores.map(s => {
+                const data = inputs[s.id];
+                const res = data ? calcularResultados(data) : null;
+                return {
+                    id: s.id,
+                    name: s.nome,
+                    Faturamento: data ? data.faturamentoReal : 0,
+                    Vendas: data ? data.quantidadeVendas : 0,
+                    Produtividade: res ? Number(res.produtividadeAtual.toFixed(2)) : 0
+                };
+            });
+
+            const faturamentoTotal = chartData.reduce((acc, curr) => acc + curr.Faturamento, 0);
+            const vendasTotais = chartData.reduce((acc, curr) => acc + curr.Vendas, 0);
+            
+            const timesPreenchidos = chartData.filter(c => c.Faturamento > 0 || c.Vendas > 0).length;
+            const sumProd = chartData.reduce((acc, curr) => acc + curr.Produtividade, 0);
+            const produtividadeMedia = timesPreenchidos > 0 ? sumProd / timesPreenchidos : 0;
+
+            return (
+                <div className="space-y-6">
+                    {/* Resumo Global */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 shadow-sm">
+                            <p className="text-sm font-bold text-emerald-700 uppercase mb-1">Faturamento Total</p>
+                            <p className="text-3xl font-black text-emerald-900">{faturamentoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        </div>
+                        <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-sm">
+                            <p className="text-sm font-bold text-blue-700 uppercase mb-1">Vendas Totais</p>
+                            <p className="text-3xl font-black text-blue-900">{vendasTotais}</p>
+                        </div>
+                        <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100 shadow-sm">
+                            <p className="text-sm font-bold text-indigo-700 uppercase mb-1">Média de Produtividade</p>
+                            <p className="text-3xl font-black text-indigo-900">{produtividadeMedia.toFixed(2)}</p>
+                        </div>
+                    </div>
+
+                    {/* Gráficos de Ranking */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="text-sm font-bold text-slate-500 uppercase mb-6">Ranking: Produtividade</h3>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                                        <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} />
+                                        <YAxis dataKey="name" type="category" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} width={80} />
+                                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                        <Bar dataKey="Produtividade" fill="#8b5cf6" radius={[0, 4, 4, 0]} maxBarSize={30} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="text-sm font-bold text-slate-500 uppercase mb-6">Ranking: Faturamento</h3>
+                            <div className="h-64">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                                        <XAxis type="number" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} tickFormatter={(val) => `R$${val/1000}k`} />
+                                        <YAxis dataKey="name" type="category" tick={{fill: '#64748b', fontSize: 12}} axisLine={false} tickLine={false} width={80} />
+                                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`} />
+                                        <Bar dataKey="Faturamento" fill="#10b981" radius={[0, 4, 4, 0]} maxBarSize={30} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tabela Detalhada */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-6">Tabela Detalhada</h2>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-slate-200">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Equipe</th>
+                                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Faturamento (Real)</th>
+                                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Vendas</th>
+                                        <th className="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase">Produtividade</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-slate-200">
+                                    {chartData.map(c => (
+                                        <tr key={c.id}>
+                                            <td className="px-6 py-4 text-sm font-medium text-slate-900">{c.name}</td>
+                                            <td className="px-6 py-4 text-sm text-right text-slate-600">{c.Faturamento > 0 ? c.Faturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}</td>
+                                            <td className="px-6 py-4 text-sm text-right text-slate-600">{c.Vendas > 0 ? c.Vendas : '-'}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                {c.Produtividade > 0 ? (
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${c.Produtividade >= 0.40 ? 'bg-emerald-100 text-emerald-800' : c.Produtividade >= 0.33 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                                                        {c.Produtividade.toFixed(2)}
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        })()
       )}
     </div>
   );
