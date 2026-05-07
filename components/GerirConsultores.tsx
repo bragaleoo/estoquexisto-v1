@@ -139,27 +139,40 @@ const GerirConsultores: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+                        <div className="bg-slate-50 px-6 py-4 border-b font-bold text-slate-700">Ativos</div>
                         <table className="w-full">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th className="px-6 py-4">Nome</th>
-                                    <th className="px-6 py-4 text-center">Status</th>
-                                    <th className="px-6 py-4 text-center">Ação</th>
-                                </tr>
-                            </thead>
                             <tbody>
-                                {consultores.map(c => (
+                                {consultores.filter(c => (c.status || 'inativo') === 'ativo').map(c => (
                                     <tr key={c.id} className="border-t">
                                         <td className="px-6 py-4 font-semibold">{c.nome}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${(c.status || 'inativo') === 'ativo' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                                {(c.status || 'inativo').toUpperCase()}
-                                            </span>
+                                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">ATIVO</span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600 inline-flex">
-                                                {c.status === 'ativo' ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                                                <XCircle className="w-5 h-5" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="bg-slate-50 px-6 py-4 border-b font-bold text-slate-700">Inativos</div>
+                        <table className="w-full">
+                            <tbody>
+                                {consultores.filter(c => (c.status || 'inativo') === 'inativo').map(c => (
+                                    <tr key={c.id} className="border-t">
+                                        <td className="px-6 py-4 font-semibold text-slate-500">{c.nome}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">INATIVO</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600 inline-flex">
+                                                <CheckCircle className="w-5 h-5" />
                                             </button>
                                         </td>
                                     </tr>
