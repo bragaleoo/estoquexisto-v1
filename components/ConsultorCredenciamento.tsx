@@ -372,16 +372,16 @@ const ConsultorCredenciamento: React.FC = () => {
                              </div>
                              <div className="grid grid-cols-3 gap-2 text-center">
                                  <div className="text-xs">
-                                     <p className="font-bold text-emerald-600">{totalVisitas}</p>
-                                     <p className="text-[10px] text-slate-500">Visitas</p>
-                                 </div>
-                                 <div className="text-xs">
                                      <p className="font-bold text-indigo-600">{totalCred}</p>
                                      <p className="text-[10px] text-slate-500">Total Cred</p>
                                  </div>
                                  <div className="text-xs">
                                      <p className="font-bold text-indigo-600">{percPJ}%</p>
                                      <p className="text-[10px] text-slate-500">% PJ</p>
+                                 </div>
+                                 <div className="text-xs">
+                                     <p className="font-bold text-emerald-600">{totalVisitas}</p>
+                                     <p className="text-[10px] text-slate-500">Visitas</p>
                                  </div>
                              </div>
                          </div>
