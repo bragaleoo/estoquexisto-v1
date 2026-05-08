@@ -32,10 +32,10 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
             onLogin({ perfil: 'Administrador', nome: 'Coordenador Xisto' });
         } 
         // EQUIPES SERGIPE (SE)
-        else if (u === 'aju02' && p === '123654@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 01', supervisorId: 2, supervisorUuid: '5eb5db5e-97e3-4462-8b88-932d09ace387' });
-        } else if (u === 'aju01' && p === '134679@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 02', supervisorId: 1, supervisorUuid: '3bae7474-0190-4092-b5f4-e89740d04b21' });
+        else if (u === 'aju01' && p === '134679@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 01', supervisorId: 1, supervisorUuid: '5eb5db5e-97e3-4462-8b88-932d09ace387' });
+        } else if (u === 'aju02' && p === '123654@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 02', supervisorId: 2, supervisorUuid: '3bae7474-0190-4092-b5f4-e89740d04b21' });
         } else if (u === 'aju03' && p === '789456@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 03', supervisorId: 3, supervisorUuid: 'bde38ba7-4dc4-491b-afa2-c383a1b7e9e0' });
         } else if (u === 'se04' && p === '654321@') {
@@ -44,10 +44,10 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 05', supervisorId: 5, supervisorUuid: '3a5edc2d-927c-4087-95c4-010ffa312980' });
         } 
         // EQUIPES ALAGOAS (AL)
-        else if (u === 'mac02' && p === '123789@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 01', supervisorId: 7, supervisorUuid: 'b39c2fe4-d279-47d4-924e-398c20d3e533' });
-        } else if (u === 'mac01' && p === '654987@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 02', supervisorId: 6, supervisorUuid: 'f2ce0423-4ce0-47fb-9192-b0e7d4724849' });
+        else if (u === 'mac01' && p === '654987@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 01', supervisorId: 6, supervisorUuid: 'b39c2fe4-d279-47d4-924e-398c20d3e533' });
+        } else if (u === 'mac02' && p === '123789@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 02', supervisorId: 7, supervisorUuid: 'f2ce0423-4ce0-47fb-9192-b0e7d4724849' });
         } else if (u === 'al03' && p === '159357@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor AL 03', supervisorId: 8, supervisorUuid: 'f6eff710-4782-432e-9d41-3e0b8e1b1dab' });
         } 
