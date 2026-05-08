@@ -29,8 +29,8 @@ const GerirConsultores: React.FC = () => {
     useEffect(() => {
         if (currentUser?.perfil === 'Administrador') {
             fetchSupervisores();
-        } else if (currentUser?.supervisorId) {
-            setSupervisorSelecionado(String(currentUser.supervisorId));
+        } else if (currentUser?.supervisorUuid) {
+            setSupervisorSelecionado(currentUser.supervisorUuid);
         }
     }, [currentUser]);
 

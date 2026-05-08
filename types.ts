@@ -88,6 +88,7 @@ export interface ImportacaoItem {
 export interface UserProfile {
   perfil: Perfil;
   supervisorId?: number;
+  supervisorUuid?: string;
   nome: string;
   regiao?: Regiao;
 }
@@ -95,6 +96,7 @@ export interface UserProfile {
 export interface Supervisor {
   id: number;
   nome: string;
+  uuid?: string;
 }
 
 export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'devolucoes' | 'acompanhamento' | 'credenciamentos' | 'gerir-consultores' | 'analise-inteligencia' | 'limpeza-dados';

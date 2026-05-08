@@ -150,20 +150,29 @@ const ConsultorCredenciamento: React.FC = () => {
   }, [semana]);
 
   const fetchSupervisores = async () => {
-    const { data } = await supabase.from('supervisores').select('id, nome');
+    let query = supabase.from('supervisores').select('id, nome');
+    if (currentUser?.perfil === 'Supervisor' && currentUser?.supervisorUuid) {
+        query = query.eq('id', currentUser.supervisorUuid);
+    }
+    const { data } = await query;
     if (data) {
         const formattedData = data.map(s => ({
             id: s.id,
             nome: s.nome.includes(' - ') ? s.nome.split(' - ')[1].trim() : s.nome
         }));
         setSupervisores(formattedData.sort((a, b) => a.nome.localeCompare(b.nome)));
+        
+        // Auto-select supervisor if only one is returned (e.g. for Supervisor profile)
+        if (formattedData.length === 1 && !supervisorFiltro) {
+            setSupervisorFiltro(formattedData[0].id);
+        }
     }
   };
 
   const fetchConsultores = async () => {
     let query = supabase.from('consultores').select('id, nome, supervisor_id').eq('status', 'ativo');
-    if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorId) {
-        query = query.eq('supervisor_id', currentUser.supervisorId);
+    if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
+        query = query.eq('supervisor_id', currentUser.supervisorUuid);
     }
     const { data } = await query;
     if(data) setConsultores(data as {id: string, nome: string, supervisor_id: string}[]);
@@ -199,8 +208,8 @@ const ConsultorCredenciamento: React.FC = () => {
             consultores:consultor_id!inner (nome, supervisor_id, status)
         `);
 
-      if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorId) {
-        query = query.eq('consultores.supervisor_id', currentUser.supervisorId);
+      if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
+        query = query.eq('consultores.supervisor_id', currentUser.supervisorUuid);
       }
       
       const { data: creds, error } = await query;
@@ -316,10 +325,16 @@ const ConsultorCredenciamento: React.FC = () => {
             <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
                 {weeks.map(w => <option key={w.id} value={w.id}>Semana {w.id}</option>)}
             </select>
-             <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
-                 <option value="">Todas Supervisões</option>
-                 {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-              </select>
+             {currentUser?.perfil === 'Administrador' ? (
+                <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todas Supervisões</option>
+                    {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                </select>
+             ) : (
+                <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
+                    {supervisores.find(s => s.id === supervisorFiltro)?.nome || 'Minha Supervisão'}
+                </div>
+             )}
           </div>
       </div>
 

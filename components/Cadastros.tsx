@@ -87,6 +87,7 @@ const Cadastros: React.FC = () => {
     if (!context) return null;
     const { pedidos, maquinas, registrarMaquinaManual, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser, triggerRefresh } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
+    const isAdmin = currentUser?.perfil === 'Administrador';
     const hasFixedRegiao = !!currentUser?.regiao;
 
     const listaConsultores = useMemo(() => {
@@ -132,7 +133,6 @@ const Cadastros: React.FC = () => {
         
         let list: Maquina[] = [...uniqueMaquinas];
         // ... (resto da lógica de filtro)
-        const isAdmin = currentUser?.perfil === 'Administrador';
         if (isSupervisor && !isAdmin) {
             list = list.filter(m => m.supervisor_id === currentUser?.supervisorId);
         }
@@ -306,7 +306,7 @@ const Cadastros: React.FC = () => {
         const pedido = pedidos.find(p => p.id === m.pedido_id);
         setEditingMachine(m);
         setEditData({ 
-            supervisor: m.supervisor_id?.toString() || '', 
+            supervisor: isSupervisor ? (currentUser?.supervisorId?.toString() || '') : (m.supervisor_id?.toString() || ''), 
             consultor: m.consultor_nome || '',
             regiao: m.regiao || pedido?.regiao || ''
         });
@@ -423,12 +423,24 @@ const Cadastros: React.FC = () => {
                             </div>
                         )}
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Região</label><select disabled={hasFixedRegiao} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={hasFixedRegiao ? currentUser.regiao : filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
-                        <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Operação</label><select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={filterOp} onChange={e => setFilterOp(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.filter(s => {
-                            if (!hasFixedRegiao) return true;
-                            if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('SE');
-                            if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL');
-                            return true;
-                        }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                        <div>
+                            <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Operação</label>
+                            {isAdmin ? (
+                                <select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={filterOp} onChange={e => setFilterOp(e.target.value)}>
+                                    <option value="">TODAS</option>
+                                    {SUPERVISORES.filter(s => {
+                                        if (!hasFixedRegiao) return true;
+                                        if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('SE');
+                                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL');
+                                        return true;
+                                    }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                                </select>
+                            ) : (
+                                <div className="w-full p-3 border-2 border-slate-200 rounded-xl bg-slate-100 text-slate-700 text-xs font-black uppercase">
+                                    {SUPERVISORES.find(s => s.id === currentUser?.supervisorId)?.nome || 'MINHA OPERAÇÃO'}
+                                </div>
+                            )}
+                        </div>
                         <div>
                             <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Consultor</label>
                             <input 
@@ -598,7 +610,7 @@ const Cadastros: React.FC = () => {
                     <select disabled={hasFixedRegiao} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50" value={editData.regiao} onChange={e => setEditData({...editData, regiao: e.target.value as Regiao})}>
                         <option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option>
                     </select>
-                    <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50" value={editData.supervisor} onChange={e => setEditData({...editData, supervisor: e.target.value})}>
+                    <select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50" value={editData.supervisor} onChange={e => setEditData({...editData, supervisor: e.target.value})}>
                         <option value="">OPERAÇÃO *</option>
                         {SUPERVISORES.map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                     </select>

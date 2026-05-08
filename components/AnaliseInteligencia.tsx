@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { AppContext } from '../App';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DollarSign, Target, Activity, Calendar } from 'lucide-react';
+import { useContext } from 'react';
 
 interface InteligenciaInputs {
   referencia: string;
@@ -15,6 +16,8 @@ interface InteligenciaInputs {
 }
 
 const AnaliseInteligencia: React.FC = () => {
+  const context = useContext(AppContext);
+  const currentUser = context?.currentUser;
   const [activeTab, setActiveTab] = useState<'registro' | 'relatorios'>('registro');
   const [supervisores, setSupervisores] = useState<{id: string, nome: string}[]>([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>('');
@@ -43,13 +46,21 @@ const AnaliseInteligencia: React.FC = () => {
   }, [selectedSupervisor]);
 
   const fetchSupervisores = async () => {
-    const { data } = await supabase.from('supervisores').select('id, nome');
+    let query = supabase.from('supervisores').select('id, nome');
+    if (currentUser?.perfil === 'Supervisor' && currentUser?.supervisorUuid) {
+        query = query.eq('id', currentUser.supervisorUuid);
+    }
+    const { data } = await query;
     if (data) {
         const formattedData = data.map(s => ({
             id: s.id,
             nome: s.nome.includes(' - ') ? s.nome.split(' - ')[1].trim() : s.nome
         }));
         setSupervisores(formattedData.sort((a, b) => a.nome.localeCompare(b.nome)));
+        
+        if (formattedData.length === 1 && !selectedSupervisor) {
+            setSelectedSupervisor(formattedData[0].id);
+        }
     }
   };
 
@@ -145,19 +156,27 @@ const AnaliseInteligencia: React.FC = () => {
       
       <div className="flex border-b border-slate-200">
         <button onClick={() => setActiveTab('registro')} className={`px-6 py-3 text-sm font-bold border-b-2 ${activeTab === 'registro' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Registro</button>
-        <button onClick={() => setActiveTab('relatorios')} className={`px-6 py-3 text-sm font-bold border-b-2 ${activeTab === 'relatorios' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Relatório Consolidado</button>
+        {currentUser?.perfil === 'Administrador' && (
+            <button onClick={() => setActiveTab('relatorios')} className={`px-6 py-3 text-sm font-bold border-b-2 ${activeTab === 'relatorios' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Relatório Consolidado</button>
+        )}
       </div>
 
       {activeTab === 'registro' ? (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <select 
-                value={selectedSupervisor} 
-                onChange={(e) => setSelectedSupervisor(e.target.value)} 
-                className="w-full p-3 mb-6 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500"
-            >
-                 <option value="">Selecione uma equipe/supervisão</option>
-                 {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-            </select>
+            {currentUser?.perfil === 'Administrador' ? (
+                <select 
+                    value={selectedSupervisor} 
+                    onChange={(e) => setSelectedSupervisor(e.target.value)} 
+                    className="w-full p-3 mb-6 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="">Selecione uma equipe/supervisão</option>
+                    {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                </select>
+            ) : (
+                <div className="w-full p-3 mb-6 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
+                    Equipe: {supervisores.find(s => s.id === selectedSupervisor)?.nome || 'Minha Supervisão'}
+                </div>
+            )}
             {selectedSupervisor && (
                 <>
                     <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-4">Parâmetros de Entrada</h2>
