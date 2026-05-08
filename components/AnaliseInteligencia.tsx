@@ -2,7 +2,7 @@ import { supabase } from '../supabase';
 import { AppContext } from '../App';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DollarSign, Target, Activity, Calendar } from 'lucide-react';
-import { useContext } from 'react';
+import { useContext, useState, useEffect, useMemo } from 'react';
 
 interface InteligenciaInputs {
   referencia: string;
