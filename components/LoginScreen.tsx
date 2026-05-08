@@ -33,9 +33,9 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
         } 
         // EQUIPES SERGIPE (SE)
         else if (u === 'aju01' && p === '134679@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 01', supervisorId: 1, supervisorUuid: '5eb5db5e-97e3-4462-8b88-932d09ace387' });
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 01', supervisorId: 2, supervisorUuid: '5eb5db5e-97e3-4462-8b88-932d09ace387' });
         } else if (u === 'aju02' && p === '123654@') {
-            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 02', supervisorId: 2, supervisorUuid: '3bae7474-0190-4092-b5f4-e89740d04b21' });
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 02', supervisorId: 1, supervisorUuid: '3bae7474-0190-4092-b5f4-e89740d04b21' });
         } else if (u === 'aju03' && p === '789456@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 03', supervisorId: 3, supervisorUuid: 'bde38ba7-4dc4-491b-afa2-c383a1b7e9e0' });
         } else if (u === 'se04' && p === '654321@') {
