@@ -128,9 +128,9 @@ const Cadastros: React.FC = () => {
 
     const filteredInventory = useMemo(() => {
         // Remove duplicatas baseadas no ID da máquina antes de qualquer processamento
-        const uniqueMaquinas = Array.from(new Map(maquinas.map(m => [m.id, m])).values());
+        const uniqueMaquinas: Maquina[] = Array.from(new Map(maquinas.map((m: Maquina) => [m.id, m])).values());
         
-        let list = [...uniqueMaquinas];
+        let list: Maquina[] = [...uniqueMaquinas];
         // ... (resto da lógica de filtro)
         const isAdmin = currentUser?.perfil === 'Administrador';
         if (isSupervisor && !isAdmin) {
@@ -138,16 +138,16 @@ const Cadastros: React.FC = () => {
         }
         
         if (hasFixedRegiao && !isAdmin) {
-            list = list.filter(m => {
+            list = list.filter((m: Maquina) => {
                 const p = pedidos.find(pd => pd.id === m.pedido_id);
                 const reg = m.regiao || p?.regiao;
                 return !reg || reg === currentUser.regiao;
             });
         }
 
-        list = list.filter(m => (showBaixadas ? m.status_estoque === 'BAIXADA' : m.status_estoque !== 'BAIXADA'));
+        list = list.filter((m: Maquina) => (showBaixadas ? m.status_estoque === 'BAIXADA' : m.status_estoque !== 'BAIXADA'));
 
-        const filtered = list.filter(m => {
+        const filtered = list.filter((m: Maquina) => {
             const pedidoRelacionado = pedidos.find(p => p.id === m.pedido_id);
             const regiaoEfetiva = m.regiao || pedidoRelacionado?.regiao;
 
@@ -183,7 +183,7 @@ const Cadastros: React.FC = () => {
             'BAIXADA': 2
         };
 
-        return filtered.sort((a, b) => {
+        return filtered.sort((a: Maquina, b: Maquina) => {
             if (sortField) {
                 let valA: any = '';
                 let valB: any = '';
@@ -223,7 +223,7 @@ const Cadastros: React.FC = () => {
 
     const handleExportExcel = () => {
         if (filteredInventory.length === 0) return alert("Não há ativos para exportar.");
-        const dataToExport = filteredInventory.map(m => {
+        const dataToExport = filteredInventory.map((m: Maquina) => {
             const pedido = pedidos.find(p => p.id === m.pedido_id);
             const supervisor = SUPERVISORES.find(s => s.id === m.supervisor_id);
             return {
@@ -261,7 +261,7 @@ const Cadastros: React.FC = () => {
         if (!supervisor) return false;
         const supRegion = getSupervisorRegion(supervisor.nome);
         if (!supRegion) return false;
-        const conflictingMachines = maquinas.filter(m => ids.includes(m.id)).filter(m => {
+        const conflictingMachines = maquinas.filter((m: Maquina) => ids.includes(m.id)).filter((m: Maquina) => {
             const pedido = pedidos.find(p => p.id === m.pedido_id);
             const regiaoAtual = regionOverride || m.regiao || pedido?.regiao;
             return regiaoAtual && regiaoAtual !== supRegion;
@@ -316,6 +316,14 @@ const Cadastros: React.FC = () => {
         if (!editingMachine) return;
         const supervisorId = parseInt(editData.supervisor);
         if (!supervisorId) return alert("A operação é obrigatória.");
+        
+        const isBaixada = editingMachine.status_estoque === 'BAIXADA';
+        const msg = isBaixada 
+            ? `ATENÇÃO: Esta máquina está com status BAIXADA.\n\nA edição alterará o responsável/região mas MANTERÁ o status de BAIXA para evitar erros de estoque.\n\nDeseja continuar?`
+            : `Deseja salvar as alterações para esta máquina?`;
+
+        if (!window.confirm(msg)) return;
+
         if (checkRegionConflict([editingMachine.id], supervisorId, editData.regiao as Regiao)) return;
         await atualizarMaquina(editingMachine.id, supervisorId, editData.consultor.trim().toUpperCase(), editData.regiao as Regiao);
         setEditingMachine(null);

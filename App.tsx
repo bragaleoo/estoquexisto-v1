@@ -289,9 +289,14 @@ const App: React.FC = () => {
   const atualizarMaquina = async (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
-    const novoStatus: StatusEstoque = supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL';
+    const currentMachine = maquinas.find(m => m.id === maquinaId);
+    const currentStatus = currentMachine?.status_estoque || 'DISPONIVEL';
+    
+    // Se já estiver baixada, mantém baixada. Caso contrário, define baseado na presença de supervisor.
+    const novoStatus: StatusEstoque = currentStatus === 'BAIXADA' ? 'BAIXADA' : (supervisorId ? 'ATRIBUIDA' : 'DISPONIVEL');
+    
     await supabase.from('maquinas').update({ supervisor_id: supervisorId, consultor_nome: consultorNome, status_estoque: novoStatus, regiao: novaRegiao }).eq('id', maquinaId);
-    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { supervisor: supervisorId, consultor: consultorNome, regiao: novaRegiao } } });
+    await supabase.from('eventos_maquina').insert({ id: crypto.randomUUID(), maquina_id: maquinaId, tipo_evento: 'EDICAO', criado_em: timestamp, criado_por: currentUser?.nome || 'Sistema', payload: { after: { supervisor: supervisorId, consultor: consultorNome, regiao: novaRegiao, status: novoStatus } } });
     triggerRefresh();
   };
 

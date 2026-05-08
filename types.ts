@@ -93,7 +93,7 @@ export interface UserProfile {
 }
 
 export interface Supervisor {
-  id: string;
+  id: number;
   nome: string;
 }
 
