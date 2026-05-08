@@ -61,6 +61,7 @@ const ConsultorCredenciamento: React.FC = () => {
   const [consultores, setConsultores] = useState<{id: string, nome: string, supervisor_id: string}[]>([]);
   const [dailyData, setDailyData] = useState<Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>>>({});
   const [newEntry, setNewEntry] = useState({ consultor_id: '', data: new Date().toISOString().split('T')[0], cpf: 0, cnpj: 0, visitas: 0 });
+  const [kpiPeriod, setKpiPeriod] = useState<'mensal' | 'semanal'>('semanal');
   
   // State for editing
   const [editingCredId, setEditingCredId] = useState<string | null>(null);
@@ -103,7 +104,7 @@ const ConsultorCredenciamento: React.FC = () => {
     for (const dateObj of datesToSave) {
         const day = dateObj.getDate();
         const values = dailyData[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
-        const date = dateObj.toISOString().split('T')[0];
+        const date = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
 
         // Check if record exists
         const { data: existingData } = await supabase
@@ -236,9 +237,9 @@ const ConsultorCredenciamento: React.FC = () => {
     return data.filter(d => {
         const matchName = d.consultores.nome.toLowerCase().includes(searchTerm.toLowerCase());
         const matchSupervisor = supervisorFiltro ? d.consultores.supervisor_id === supervisorFiltro : true;
-        const dDate = new Date(d.data);
-        const matchMes = dDate.getMonth() + 1 === mes;
-        const matchAno = dDate.getFullYear() === ano;
+        const [y, m, day] = d.data.split('-').map(Number);
+        const matchMes = m === mes;
+        const matchAno = y === ano;
         return matchName && matchSupervisor && matchMes && matchAno;
     });
   }, [data, searchTerm, supervisorFiltro, mes, ano]);
@@ -267,9 +268,11 @@ const ConsultorCredenciamento: React.FC = () => {
 
   const weekStats = useMemo(() => {
       const selectedWeekDates = weeks[semana - 1]?.days || [];
-      const dateStrings = selectedWeekDates.map(d => d.toISOString().split('T')[0]);
+      const dateStrings = selectedWeekDates.map(d => {
+          return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      });
       
-      const filteredWeekData = data.filter(d => dateStrings.includes(d.data));
+      const filteredWeekData = filteredData.filter(d => dateStrings.includes(d.data));
       
       const s = filteredWeekData.reduce((acc, curr) => ({
           cpf: acc.cpf + (curr.cpf_count || 0),
@@ -280,7 +283,7 @@ const ConsultorCredenciamento: React.FC = () => {
       const totalCred = s.cpf + s.cnpj;
       const percPJ = totalCred > 0 ? ((s.cnpj / totalCred) * 100).toFixed(1) : '0';
       return { totalCred, percPJ, visitas: s.visitas };
-  }, [data, weeks, semana]);
+  }, [filteredData, weeks, semana]);
 
   if(loading) return <div className="p-10 text-center">Carregando painel de credenciamentos...</div>;
 
@@ -356,17 +359,26 @@ const ConsultorCredenciamento: React.FC = () => {
 
           {/* Table Section */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-            <div className="p-6 border-b border-slate-200">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
                 <h2 className="text-lg font-bold text-slate-900">Relatório de Performance (KPIs)</h2>
+                <div className="flex bg-slate-100 p-1 rounded-lg">
+                    <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'semanal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('semanal')}>Semanal</button>
+                    <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'mensal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('mensal')}>Mensal</button>
+                </div>
             </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                 {filteredConsultores.map(c => {
-                     const consultantDaily = dailyData[c.id] || {};
-                     const totalCPFs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cpf, 0);
-                     const totalCNPJs = Object.values(consultantDaily).reduce((sum, day) => sum + day.cnpj, 0);
-                     const totalVisitas = Object.values(consultantDaily).reduce((sum, day) => sum + day.visitas, 0);
-                     const totalCred = totalCPFs + totalCNPJs;
-                     const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
+             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {filteredConsultores.map(c => {
+                      const consultantDaily = dailyData[c.id] || {};
+                      const validDays = kpiPeriod === 'semanal' 
+                          ? (weeks[semana - 1]?.days.map(d => d.getDate()) || []) 
+                          : Object.keys(consultantDaily).map(Number);
+                      
+                      const totalCPFs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cpf || 0), 0);
+                      const totalCNPJs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cnpj || 0), 0);
+                      const totalVisitas = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.visitas || 0), 0);
+                      
+                      const totalCred = totalCPFs + totalCNPJs;
+                      const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
                      
                      const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
                      const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
