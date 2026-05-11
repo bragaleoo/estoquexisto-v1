@@ -88,6 +88,7 @@ const Cadastros: React.FC = () => {
     const { pedidos, maquinas, registrarMaquinaManual, atribuirEmLote, baixarEmLote, atualizarMaquina, disponibilizarEmLote, alterarRegiaoEmLote, currentUser, triggerRefresh } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
     const isAdmin = currentUser?.perfil === 'Administrador';
+    const isEstoquista = currentUser?.perfil === 'Estoquista';
     const hasFixedRegiao = !!currentUser?.regiao;
 
     const listaConsultores = useMemo(() => {
@@ -425,7 +426,7 @@ const Cadastros: React.FC = () => {
                         <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Região</label><select disabled={hasFixedRegiao} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={hasFixedRegiao ? currentUser.regiao : filterRegiao} onChange={e => setFilterRegiao(e.target.value)}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
                         <div>
                             <label className="block text-[9px] font-black text-slate-500 uppercase mb-1">Operação</label>
-                            {isAdmin ? (
+                            {isAdmin || isEstoquista ? (
                                 <select className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black" value={filterOp} onChange={e => setFilterOp(e.target.value)}>
                                     <option value="">TODAS</option>
                                     {SUPERVISORES.filter(s => {

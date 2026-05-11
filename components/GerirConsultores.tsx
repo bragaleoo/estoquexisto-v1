@@ -27,7 +27,7 @@ const GerirConsultores: React.FC = () => {
     const [view, setView] = useState<'list' | 'create'>('list');
 
     useEffect(() => {
-        if (currentUser?.perfil === 'Administrador') {
+        if (currentUser?.perfil === 'Administrador' || currentUser?.perfil === 'Estoquista') {
             fetchSupervisores();
         } else if (currentUser?.supervisorUuid) {
             setSupervisorSelecionado(currentUser.supervisorUuid);
@@ -129,7 +129,7 @@ const GerirConsultores: React.FC = () => {
                 <>
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex-1">
-                             {currentUser?.perfil === 'Administrador' && (
+                             { (currentUser?.perfil === 'Administrador' || currentUser?.perfil === 'Estoquista') && (
                                 <select 
                                     className="p-3 border rounded-lg w-full max-w-sm"
                                     value={supervisorSelecionado || ''}

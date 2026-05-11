@@ -47,7 +47,7 @@ const Layout: React.FC = () => {
     { id: 'credenciamentos' as Page, label: 'Credenciamentos', icon: <BarChartIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'analise-inteligencia' as Page, label: 'Inteligência de Negócios (em andamento)', icon: <BrainIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'limpeza-dados' as Page, label: 'Limpeza de Dados', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
-    { id: 'gerir-consultores' as Page, label: 'Gerir Equipe', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'gerir-consultores' as Page, label: 'Gerir Equipe', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Estoquista'] },
   ];
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(currentUser?.perfil || ''));

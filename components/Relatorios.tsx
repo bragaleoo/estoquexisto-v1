@@ -134,7 +134,12 @@ const Relatorios: React.FC = () => {
                     <div><label className="block text-[10px] font-black uppercase mb-3">Lote</label><select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50" value={filters.pedido} onChange={e => setFilters({...filters, pedido: e.target.value})}><option value="">TODOS</option>{pedidos.map(p => <option key={p.id} value={p.id}>{p.codigo_pedido}</option>)}</select></div>
                     <div><label className="block text-[10px] font-black uppercase mb-3">Status</label><select className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50" value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}><option value="">TODOS</option><option value="DISPONIVEL">DISPONÍVEL</option><option value="ATRIBUIDA">ATRIBUÍDA</option><option value="BAIXADA">BAIXADA</option></select></div>
                     <div><label className="block text-[10px] font-black uppercase mb-3">Região</label><select disabled={hasFixedRegiao} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50" value={filters.regiao} onChange={e => setFilters({...filters, regiao: e.target.value})}><option value="">TODAS</option><option value="SERGIPE">SERGIPE</option><option value="ALAGOAS">ALAGOAS</option></select></div>
-                    <div><label className="block text-[10px] font-black uppercase mb-3">Supervisor</label><select disabled={currentUser?.perfil === 'Supervisor'} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50" value={filters.supervisor} onChange={e => setFilters({...filters, supervisor: e.target.value})}><option value="">TODOS</option>{SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                    <div><label className="block text-[10px] font-black uppercase mb-3">Supervisor</label><select disabled={currentUser?.perfil === 'Supervisor'} className="w-full p-4 border-2 border-slate-200 rounded-2xl font-black bg-slate-50" value={filters.supervisor} onChange={e => setFilters({...filters, supervisor: e.target.value})}><option value="">TODOS</option>{SUPERVISORES.filter(s => {
+                        if (!hasFixedRegiao) return true;
+                        if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('SE') || s.nome.startsWith('AJU');
+                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL') || s.nome.startsWith('MAC');
+                        return true;
+                    }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">

@@ -49,7 +49,7 @@ const Devolucoes: React.FC = () => {
                 const sup = SUPERVISORES.find(s => s.id === d.supervisor_id);
                 if (!sup) return false;
                 if (currentUser.regiao === 'SERGIPE') return sup.nome.startsWith('AJU') || sup.nome.startsWith('SE');
-                if (currentUser.regiao === 'ALAGOAS') return sup.nome.startsWith('MAC');
+                if (currentUser.regiao === 'ALAGOAS') return sup.nome.startsWith('AL') || sup.nome.startsWith('MAC');
                 return true;
             })
             .map(d => d.consultor_nome)
@@ -78,7 +78,7 @@ const Devolucoes: React.FC = () => {
                 const sup = SUPERVISORES.find(s => s.id === d.supervisor_id);
                 if (!sup) return false;
                 if (currentUser.regiao === 'SERGIPE') return sup.nome.startsWith('AJU') || sup.nome.startsWith('SE');
-                if (currentUser.regiao === 'ALAGOAS') return sup.nome.startsWith('MAC');
+                if (currentUser.regiao === 'ALAGOAS') return sup.nome.startsWith('AL') || sup.nome.startsWith('MAC');
                 return true;
             });
         }
@@ -96,7 +96,7 @@ const Devolucoes: React.FC = () => {
                  else {
                      const nome = sup.nome.toUpperCase();
                      if (filterRegiao === 'SERGIPE') matchRegiao = nome.startsWith('AJU') || nome.startsWith('SE');
-                     else if (filterRegiao === 'ALAGOAS') matchRegiao = nome.startsWith('MAC');
+                     else if (filterRegiao === 'ALAGOAS') matchRegiao = nome.startsWith('AL') || nome.startsWith('MAC');
                  }
              }
             return matchSerial && matchRastreio && matchSupervisor && matchConsultor && matchData && matchRegiao && (activeTab === 'PENDENTE' ? !d.data_envio_correios : !!d.data_envio_correios);
@@ -197,7 +197,7 @@ const Devolucoes: React.FC = () => {
                     <div><label className="block text-[9px] font-black text-slate-500 uppercase mb-1 tracking-widest">Operação</label><select disabled={isSupervisor} className="w-full p-3 border-2 border-slate-200 rounded-xl bg-white text-slate-950 text-xs font-black uppercase outline-none focus:border-red-600 disabled:opacity-50" value={filterSupervisor} onChange={e => setFilterSupervisor(e.target.value)}><option value="">TODAS</option>{SUPERVISORES.filter(s => {
                         if (!hasFixedRegiao) return true;
                         if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE');
-                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('MAC');
+                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL') || s.nome.startsWith('MAC');
                         return true;
                     }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                     <div>
@@ -287,7 +287,7 @@ const Devolucoes: React.FC = () => {
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}><option value="">SELECIONE...</option>{SUPERVISORES.filter(s => {
                         if (!hasFixedRegiao) return true;
                         if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE');
-                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('MAC');
+                        if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL') || s.nome.startsWith('MAC');
                         return true;
                     }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
                     <div>
