@@ -63,7 +63,7 @@ const ConsultorCredenciamento: React.FC = () => {
     const [kpiPeriod, setKpiPeriod] = useState<'mensal' | 'semanal'>('semanal');
 
     // Permissões: Coordenador e Administrador podem editar. Supervisor é apenas consultivo.
-    // No sistema atual, Coordenador loga com perfil "Administrador".
+    // No sistema atual, Coordenador loga com perfil \"Administrador\".
     const canEdit = currentUser?.perfil === 'Administrador';
 
     // State for editing
@@ -110,7 +110,6 @@ const ConsultorCredenciamento: React.FC = () => {
                 d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
             );
 
-            // Buscar registros existentes para este consultor nesta semana
             const { data: existingRecords, error: fetchError } = await supabase
                 .from('credenciamentos')
                 .select('id, data')
@@ -128,39 +127,35 @@ const ConsultorCredenciamento: React.FC = () => {
 
                 const existing = existingRecords?.find(r => r.data === dateStr);
 
+                const payloadItem: any = {
+                    consultor_id: consultorId,
+                    data: dateStr,
+                    cpf_count: Number(values.cpf) || 0,
+                    cnpj_count: Number(values.cnpj) || 0,
+                    visitas: Number(values.visitas) || 0
+                };
+
                 if (existing) {
-                    allPayload.push({
-                        id: existing.id,
-                        consultor_id: consultorId,
-                        data: dateStr,
-                        cpf_count: values.cpf,
-                        cnpj_count: values.cnpj,
-                        visitas: values.visitas
-                    });
-                } else if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
-                    allPayload.push({
-                        consultor_id: consultorId,
-                        data: dateStr,
-                        cpf_count: values.cpf,
-                        cnpj_count: values.cnpj,
-                        visitas: values.visitas
-                    });
+                    payloadItem.id = existing.id;
+                    allPayload.push(payloadItem);
+                } else if (payloadItem.cpf_count !== 0 || payloadItem.cnpj_count !== 0 || payloadItem.visitas !== 0) {
+                    allPayload.push(payloadItem);
                 }
             }
 
             if (allPayload.length > 0) {
                 const { error: upsertError } = await supabase
                     .from('credenciamentos')
-                    .upsert(allPayload);
+                    .upsert(allPayload, { onConflict: 'consultor_id,data' });
 
                 if (upsertError) throw upsertError;
             }
             
             alert('Dados do consultor salvos com sucesso!');
             fetchData();
-        } catch (error) {
-            console.error('Erro ao salvar:', error);
-            alert('Erro ao salvar dados.');
+        } catch (error: any) {
+            console.error('Erro ao salvar consultor:', error);
+            alert(`Erro ao salvar dados: ${error.message || 'Erro desconhecido'}`);
         } finally {
             setLoading(false);
         }
@@ -182,14 +177,11 @@ const ConsultorCredenciamento: React.FC = () => {
                 d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
             );
 
-            // Processamos em lotes (chunks) de 20 consultores para evitar limites de URL (Error 414) 
-            // e garantir que não ultrapassamos o limite de busca de registros.
             const chunkSize = 20;
             for (let i = 0; i < consultantsToProcess.length; i += chunkSize) {
                 const chunk = consultantsToProcess.slice(i, i + chunkSize);
                 const chunkIds = chunk.map(c => c.id);
 
-                // Buscar registros existentes apenas para este lote
                 const { data: existingRecords, error: fetchError } = await supabase
                     .from('credenciamentos')
                     .select('id, consultor_id, data')
@@ -208,23 +200,19 @@ const ConsultorCredenciamento: React.FC = () => {
 
                         const existing = existingRecords?.find(r => r.consultor_id === consultant.id && r.data === dateStr);
 
+                        const payloadItem: any = {
+                            consultor_id: consultant.id,
+                            data: dateStr,
+                            cpf_count: Number(values.cpf) || 0,
+                            cnpj_count: Number(values.cnpj) || 0,
+                            visitas: Number(values.visitas) || 0
+                        };
+
                         if (existing) {
-                            chunkPayload.push({
-                                id: existing.id,
-                                consultor_id: consultant.id,
-                                data: dateStr,
-                                cpf_count: values.cpf,
-                                cnpj_count: values.cnpj,
-                                visitas: values.visitas
-                            });
-                        } else if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
-                            chunkPayload.push({
-                                consultor_id: consultant.id,
-                                data: dateStr,
-                                cpf_count: values.cpf,
-                                cnpj_count: values.cnpj,
-                                visitas: values.visitas
-                            });
+                            payloadItem.id = existing.id;
+                            chunkPayload.push(payloadItem);
+                        } else if (payloadItem.cpf_count !== 0 || payloadItem.cnpj_count !== 0 || payloadItem.visitas !== 0) {
+                            chunkPayload.push(payloadItem);
                         }
                     }
                 }
@@ -232,7 +220,7 @@ const ConsultorCredenciamento: React.FC = () => {
                 if (chunkPayload.length > 0) {
                     const { error: upsertError } = await supabase
                         .from('credenciamentos')
-                        .upsert(chunkPayload);
+                        .upsert(chunkPayload, { onConflict: 'consultor_id,data' });
 
                     if (upsertError) throw upsertError;
                 }
@@ -240,9 +228,9 @@ const ConsultorCredenciamento: React.FC = () => {
 
             alert('Todos os dados da semana foram salvos com sucesso!');
             fetchData();
-        } catch (err) {
+        } catch (err: any) {
             console.error('Erro ao salvar tudo:', err);
-            alert('Ocorreu um erro ao salvar os dados globais. Verifique se o deploy da última versão foi concluído.');
+            alert(`Erro ao salvar dados globais: ${err.message || 'Erro desconhecido'}. Verifique se o banco de dados aceita os campos cpf_count, cnpj_count e visitas.`);
         } finally {
             setLoading(false);
         }
@@ -291,7 +279,7 @@ const ConsultorCredenciamento: React.FC = () => {
             cnpj_count: newEntry.cnpj,
             visitas: newEntry.visitas
         });
-        if (error) { console.error(error); alert("Erro ao criar cadastro"); }
+        if (error) { console.error(error); alert(\"Erro ao criar cadastro\"); }
         else {
             setShowModal(false);
             fetchData();
@@ -381,38 +369,38 @@ const ConsultorCredenciamento: React.FC = () => {
         return { totalCred, percPJ, visitas: s.visitas };
     }, [filteredData, weeks, semana]);
 
-    if (loading) return <div className="p-10 text-center">Carregando painel de credenciamentos...</div>;
+    if (loading) return <div className=\"p-10 text-center\">Carregando painel de credenciamentos...</div>;
 
     return (
-        <div className="p-8 bg-slate-50 min-h-screen">
-            <div className="flex justify-between items-center mb-8">
+        <div className=\"p-8 bg-slate-50 min-h-screen\">
+            <div className=\"flex justify-between items-center mb-8\">
                 <div>
-                    <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Credenciamentos</h1>
-                    <p className="text-slate-500 mt-1">Acompanhamento de performance operacional</p>
+                    <h1 className=\"text-3xl font-extrabold text-slate-900 tracking-tight\">Credenciamentos</h1>
+                    <p className=\"text-slate-500 mt-1\">Acompanhamento de performance operacional</p>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className=\"flex items-center space-x-4\">
 
                     <select value={`${mes}-${ano}`} onChange={(e) => {
                         const [m, a] = e.target.value.split('-').map(Number);
                         setMes(m);
                         setAno(a);
-                    }} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                    }} className=\"p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500\">
                         {Array.from({ length: 12 }).map((_, i) => {
                             const m = i + 1;
                             const a = new Date().getFullYear();
                             return <option key={i} value={`${m}-${a}`}>{new Date(a, i).toLocaleString('pt-BR', { month: 'long' })}/{a}</option>
                         })}
                     </select>
-                    <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
+                    <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className=\"p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500\">
                         {weeks.map(w => <option key={w.id} value={w.id}>Semana {w.id}</option>)}
                     </select>
                     {currentUser?.perfil === 'Administrador' ? (
-                        <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
-                            <option value="">Todas Supervisões</option>
+                        <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className=\"p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500\">
+                            <option value=\"\">Todas Supervisões</option>
                             {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                         </select>
                     ) : (
-                        <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
+                        <div className=\"p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700\">
                             {supervisores.find(s => s.id === supervisorFiltro)?.nome || 'Minha Supervisão'}
                         </div>
                     )}
@@ -420,7 +408,7 @@ const ConsultorCredenciamento: React.FC = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-slate-200 mb-6">
+            <div className=\"flex border-b border-slate-200 mb-6\">
                 <button className={`px-6 py-2 font-semibold text-sm ${activeTab === 'acompanhamento' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500'}`} onClick={() => setActiveTab('acompanhamento')}>Acompanhamento</button>
                 <button className={`px-6 py-2 font-semibold text-sm ${activeTab === 'relatorios' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500'}`} onClick={() => setActiveTab('relatorios')}>Relatórios</button>
             </div>
@@ -428,25 +416,25 @@ const ConsultorCredenciamento: React.FC = () => {
             {activeTab === 'relatorios' ? (
                 <>
                     {/* Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6 mb-8\">
                         {[
                             { label: 'Resumo do Mês', stats: monthStats },
                             { label: 'Resumo da Semana', stats: weekStats },
                         ].map(block => (
-                            <div key={block.label} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                                <h3 className="font-bold text-lg mb-4 text-slate-800">{block.label}</h3>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="text-center p-3 bg-slate-50 rounded-xl">
-                                        <p className="text-xs text-slate-500 font-medium">Creds</p>
-                                        <p className="text-xl font-bold text-indigo-600">{block.stats.totalCred}</p>
+                            <div key={block.label} className=\"bg-white p-6 rounded-2xl shadow-sm border border-slate-200\">
+                                <h3 className=\"font-bold text-lg mb-4 text-slate-800\">{block.label}</h3>
+                                <div className=\"grid grid-cols-3 gap-4\">
+                                    <div className=\"text-center p-3 bg-slate-50 rounded-xl\">
+                                        <p className=\"text-xs text-slate-500 font-medium\">Creds</p>
+                                        <p className=\"text-xl font-bold text-indigo-600\">{block.stats.totalCred}</p>
                                     </div>
-                                    <div className="text-center p-3 bg-slate-50 rounded-xl">
-                                        <p className="text-xs text-slate-500 font-medium">% PJ</p>
-                                        <p className="text-xl font-bold text-indigo-600">{block.stats.percPJ}%</p>
+                                    <div className=\"text-center p-3 bg-slate-50 rounded-xl\">
+                                        <p className=\"text-xs text-slate-500 font-medium\">% PJ</p>
+                                        <p className=\"text-xl font-bold text-indigo-600\">{block.stats.percPJ}%</p>
                                     </div>
-                                    <div className="text-center p-3 bg-slate-50 rounded-xl">
-                                        <p className="text-xs text-slate-500 font-medium">Visitas</p>
-                                        <p className="text-xl font-bold text-emerald-600">{block.stats.visitas}</p>
+                                    <div className=\"text-center p-3 bg-slate-50 rounded-xl\">
+                                        <p className=\"text-xs text-slate-500 font-medium\">Visitas</p>
+                                        <p className=\"text-xl font-bold text-emerald-600\">{block.stats.visitas}</p>
                                     </div>
                                 </div>
                             </div>
@@ -454,15 +442,15 @@ const ConsultorCredenciamento: React.FC = () => {
                     </div>
 
                     {/* Table Section */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-                        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
-                            <h2 className="text-lg font-bold text-slate-900">Relatório de Performance (KPIs)</h2>
-                            <div className="flex bg-slate-100 p-1 rounded-lg">
+                    <div className=\"bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8\">
+                        <div className=\"p-6 border-b border-slate-200 flex justify-between items-center\">
+                            <h2 className=\"text-lg font-bold text-slate-900\">Relatório de Performance (KPIs)</h2>
+                            <div className=\"flex bg-slate-100 p-1 rounded-lg\">
                                 <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'semanal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('semanal')}>Semanal</button>
                                 <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'mensal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('mensal')}>Mensal</button>
                             </div>
                         </div>
-                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className=\"p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4\">
                             {filteredConsultores.map(c => {
                                 const consultantDaily = dailyData[c.id] || {};
                                 const validDays = kpiPeriod === 'semanal'
@@ -479,23 +467,23 @@ const ConsultorCredenciamento: React.FC = () => {
                                 const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
                                 const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
                                 return (
-                                    <div key={c.id} className="border p-4 rounded-lg">
-                                        <div className="flex items-center gap-3 mb-2">
+                                    <div key={c.id} className=\"border p-4 rounded-lg\">
+                                        <div className=\"flex items-center gap-3 mb-2\">
                                             <div className={`w-3 h-3 rounded-full ${color}`}></div>
-                                            <p className="text-sm font-semibold">{c.nome}</p>
+                                            <p className=\"text-sm font-semibold\">{c.nome}</p>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2 text-center">
-                                            <div className="text-xs">
-                                                <p className="font-bold text-indigo-600">{totalCred}</p>
-                                                <p className="text-[10px] text-slate-500">Total Cred</p>
+                                        <div className=\"grid grid-cols-3 gap-2 text-center\">
+                                            <div className=\"text-xs\">
+                                                <p className=\"font-bold text-indigo-600\">{totalCred}</p>
+                                                <p className=\"text-[10px] text-slate-500\">Total Cred</p>
                                             </div>
-                                            <div className="text-xs">
-                                                <p className="font-bold text-indigo-600">{percPJ}%</p>
-                                                <p className="text-[10px] text-slate-500">% PJ</p>
+                                            <div className=\"text-xs\">
+                                                <p className=\"font-bold text-indigo-600\">{percPJ}%</p>
+                                                <p className=\"text-[10px] text-slate-500\">% PJ</p>
                                             </div>
-                                            <div className="text-xs">
-                                                <p className="font-bold text-emerald-600">{totalVisitas}</p>
-                                                <p className="text-[10px] text-slate-500">Visitas</p>
+                                            <div className=\"text-xs\">
+                                                <p className=\"font-bold text-emerald-600\">{totalVisitas}</p>
+                                                <p className=\"text-[10px] text-slate-500\">Visitas</p>
                                             </div>
                                         </div>
                                     </div>
@@ -505,28 +493,28 @@ const ConsultorCredenciamento: React.FC = () => {
                     </div>
                 </>
             ) : (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-6 border-b border-slate-200">
-                        <div className="relative w-full max-w-sm">
-                            <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
+                <div className=\"bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden\">
+                    <div className=\"p-6 border-b border-slate-200\">
+                        <div className=\"relative w-full max-w-sm\">
+                            <Search className=\"absolute left-3 top-3 w-4 h-4 text-slate-400\" />
                             <input
-                                type="text"
-                                placeholder="Buscar consultor..."
-                                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                type=\"text\"
+                                placeholder=\"Buscar consultor...\"
+                                className=\"w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none\"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
 
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-50">
+                    <table className=\"w-full text-sm text-left\">
+                        <thead className=\"text-xs text-slate-500 uppercase bg-slate-50\">
                             <tr>
-                                <th className="px-6 py-4">Consultor</th>
+                                <th className=\"px-6 py-4\">Consultor</th>
                                 {weeks[semana - 1]?.days.map((date, i) => (
-                                    <th key={i} className="px-2 py-4 text-center text-xs">
+                                    <th key={i} className=\"px-2 py-4 text-center text-xs\">
                                         {date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ({date.toLocaleDateString('pt-BR', { weekday: 'short' })})
-                                        <div className="flex justify-around text-[10px] text-slate-400 mt-1">
+                                        <div className=\"flex justify-around text-[10px] text-slate-400 mt-1\">
                                             <span>PF</span><span>PJ</span><span>Vis</span>
                                         </div>
                                     </th>
@@ -536,36 +524,36 @@ const ConsultorCredenciamento: React.FC = () => {
                         <tbody>
                             {/* Consultores */}
                             {filteredConsultores.map(c => (
-                                <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
-                                    <td className="px-6 py-4 font-semibold text-slate-900">{c.nome}</td>
+                                <tr key={c.id} className=\"border-t border-slate-100 hover:bg-slate-50\">
+                                    <td className=\"px-6 py-4 font-semibold text-slate-900\">{c.nome}</td>
                                     {weeks[semana - 1]?.days.map((date, i) => {
                                         const day = date.getDate();
                                         return (
-                                            <td key={i} className="px-1 py-4 text-center">
-                                                <div className="flex gap-0.5 justify-center">
+                                            <td key={i} className=\"px-1 py-4 text-center\">
+                                                <div className=\"flex gap-0.5 justify-center\">
                                                     <input 
-                                                        type="number" 
-                                                        min="0" 
+                                                        type=\"number\" 
+                                                        min=\"0\" 
                                                         className={`w-10 p-1 border rounded text-center text-xs ${!canEdit ? 'bg-slate-50' : ''}`} 
-                                                        placeholder="PF" 
+                                                        placeholder=\"PF\" 
                                                         value={dailyData[c.id]?.[day]?.cpf || ''} 
                                                         onChange={e => handleInputChange(c.id, day, 'cpf', Number(e.target.value))} 
                                                         disabled={!canEdit}
                                                     />
                                                     <input 
-                                                        type="number" 
-                                                        min="0" 
+                                                        type=\"number\" 
+                                                        min=\"0\" 
                                                         className={`w-10 p-1 border rounded text-center text-xs ${!canEdit ? 'bg-slate-50' : ''}`} 
-                                                        placeholder="PJ" 
+                                                        placeholder=\"PJ\" 
                                                         value={dailyData[c.id]?.[day]?.cnpj || ''} 
                                                         onChange={e => handleInputChange(c.id, day, 'cnpj', Number(e.target.value))} 
                                                         disabled={!canEdit}
                                                     />
                                                     <input 
-                                                        type="number" 
-                                                        min="0" 
+                                                        type=\"number\" 
+                                                        min=\"0\" 
                                                         className={`w-10 p-1 border rounded text-center text-xs ${!canEdit ? 'bg-slate-50' : ''}`} 
-                                                        placeholder="Vis" 
+                                                        placeholder=\"Vis\" 
                                                         value={dailyData[c.id]?.[day]?.visitas || ''} 
                                                         onChange={e => handleInputChange(c.id, day, 'visitas', Number(e.target.value))} 
                                                         disabled={!canEdit}
@@ -579,15 +567,15 @@ const ConsultorCredenciamento: React.FC = () => {
                         </tbody>
                     </table>
                     {canEdit && (
-                        <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-4">
-                            <p className="text-xs text-slate-500 font-medium">
+                        <div className=\"p-6 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-4\">
+                            <p className=\"text-xs text-slate-500 font-medium\">
                                 {filteredConsultores.length} consultores exibidos. Os dados serão salvos para a Semana {semana}.
                             </p>
                             <button 
                                 onClick={handleSaveAll}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-0.5 transition-all active:scale-95"
+                                className=\"flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-0.5 transition-all active:scale-95\"
                             >
-                                <Save className="w-4 h-4" />
+                                <Save className=\"w-4 h-4\" />
                                 Salvar Todos os Dados da Semana
                             </button>
                         </div>
