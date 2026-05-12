@@ -168,47 +168,29 @@ const ConsultorCredenciamento: React.FC = () => {
 
     const handleSaveAll = async () => {
         const datesToSave = weeks[semana - 1]?.days;
-        if (!datesToSave || filteredConsultores.length === 0) return;
+        // Consideramos todos os consultores que coincidem com o filtro de supervisão, 
+        // mesmo que estejam ocultos pelo filtro de busca (searchTerm)
+        const consultantsToProcess = consultores.filter(c => 
+            supervisorFiltro ? c.supervisor_id === supervisorFiltro : true
+        );
+
+        if (!datesToSave || consultantsToProcess.length === 0) return;
         
-        if (!confirm(`Deseja salvar os lançamentos de todos os ${filteredConsultores.length} consultores desta semana?`)) return;
+        if (!confirm(`Deseja salvar os lançamentos de todos os ${consultantsToProcess.length} consultores desta semana (incluindo os ocultos pelo filtro de busca)?`)) return;
 
         setLoading(true);
         try {
-            const dateStrings = datesToSave.map(d => 
-                d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-            );
-
-            const consultorIds = filteredConsultores.map(c => c.id);
-
-            // Buscar todos os registros existentes para estes consultores e datas
-            const { data: existingRecords, error: fetchError } = await supabase
-                .from('credenciamentos')
-                .select('id, consultor_id, data')
-                .in('consultor_id', consultorIds)
-                .in('data', dateStrings);
-
-            if (fetchError) throw fetchError;
-
             const allPayload: any[] = [];
 
-            for (const consultant of filteredConsultores) {
+            for (const consultant of consultantsToProcess) {
                 for (const dateObj of datesToSave) {
                     const day = dateObj.getDate();
                     const values = dailyData[consultant.id]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
                     const dateStr = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
 
-                    const existing = existingRecords?.find(r => r.consultor_id === consultant.id && r.data === dateStr);
-
-                    if (existing) {
-                        allPayload.push({
-                            id: existing.id,
-                            consultor_id: consultant.id,
-                            data: dateStr,
-                            cpf_count: values.cpf,
-                            cnpj_count: values.cnpj,
-                            visitas: values.visitas
-                        });
-                    } else if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
+                    // No modo em lote, enviamos todos os dados preenchidos. 
+                    // O 'upsert' com 'onConflict' no banco resolverá se é insert ou update.
+                    if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
                         allPayload.push({
                             consultor_id: consultant.id,
                             data: dateStr,
@@ -221,9 +203,10 @@ const ConsultorCredenciamento: React.FC = () => {
             }
 
             if (allPayload.length > 0) {
+                // Usamos onConflict para garantir que o banco identifique o registro correto pela dupla (consultor_id, data)
                 const { error: upsertError } = await supabase
                     .from('credenciamentos')
-                    .upsert(allPayload);
+                    .upsert(allPayload, { onConflict: 'consultor_id,data' });
 
                 if (upsertError) throw upsertError;
             }
