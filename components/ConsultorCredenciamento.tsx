@@ -180,6 +180,21 @@ const ConsultorCredenciamento: React.FC = () => {
 
         setLoading(true);
         try {
+            const dateStrings = datesToSave.map(d => 
+                d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+            );
+
+            const consultorIds = consultantsToProcess.map(c => c.id);
+
+            // Buscar todos os registros existentes para este grupo de consultores e datas
+            const { data: existingRecords, error: fetchError } = await supabase
+                .from('credenciamentos')
+                .select('id, consultor_id, data')
+                .in('consultor_id', consultorIds)
+                .in('data', dateStrings);
+
+            if (fetchError) throw fetchError;
+
             const allPayload: any[] = [];
 
             for (const consultant of consultantsToProcess) {
@@ -188,9 +203,18 @@ const ConsultorCredenciamento: React.FC = () => {
                     const values = dailyData[consultant.id]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
                     const dateStr = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
 
-                    // No modo em lote, enviamos todos os dados preenchidos. 
-                    // O 'upsert' com 'onConflict' no banco resolverá se é insert ou update.
-                    if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
+                    const existing = existingRecords?.find(r => r.consultor_id === consultant.id && r.data === dateStr);
+
+                    if (existing) {
+                        allPayload.push({
+                            id: existing.id,
+                            consultor_id: consultant.id,
+                            data: dateStr,
+                            cpf_count: values.cpf,
+                            cnpj_count: values.cnpj,
+                            visitas: values.visitas
+                        });
+                    } else if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
                         allPayload.push({
                             consultor_id: consultant.id,
                             data: dateStr,
@@ -203,10 +227,9 @@ const ConsultorCredenciamento: React.FC = () => {
             }
 
             if (allPayload.length > 0) {
-                // Usamos onConflict para garantir que o banco identifique o registro correto pela dupla (consultor_id, data)
                 const { error: upsertError } = await supabase
                     .from('credenciamentos')
-                    .upsert(allPayload, { onConflict: 'consultor_id,data' });
+                    .upsert(allPayload);
 
                 if (upsertError) throw upsertError;
             }
