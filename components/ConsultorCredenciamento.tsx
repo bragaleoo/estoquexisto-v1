@@ -168,15 +168,13 @@ const ConsultorCredenciamento: React.FC = () => {
 
     const handleSaveAll = async () => {
         const datesToSave = weeks[semana - 1]?.days;
-        // Consideramos todos os consultores que coincidem com o filtro de supervisão, 
-        // mesmo que estejam ocultos pelo filtro de busca (searchTerm)
         const consultantsToProcess = consultores.filter(c => 
             supervisorFiltro ? c.supervisor_id === supervisorFiltro : true
         );
 
         if (!datesToSave || consultantsToProcess.length === 0) return;
         
-        if (!confirm(`Deseja salvar os lançamentos de todos os ${consultantsToProcess.length} consultores desta semana (incluindo os ocultos pelo filtro de busca)?`)) return;
+        if (!confirm(`Deseja salvar os lançamentos de todos os ${consultantsToProcess.length} consultores desta semana?`)) return;
 
         setLoading(true);
         try {
@@ -184,61 +182,67 @@ const ConsultorCredenciamento: React.FC = () => {
                 d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
             );
 
-            const consultorIds = consultantsToProcess.map(c => c.id);
+            // Processamos em lotes (chunks) de 20 consultores para evitar limites de URL (Error 414) 
+            // e garantir que não ultrapassamos o limite de busca de registros.
+            const chunkSize = 20;
+            for (let i = 0; i < consultantsToProcess.length; i += chunkSize) {
+                const chunk = consultantsToProcess.slice(i, i + chunkSize);
+                const chunkIds = chunk.map(c => c.id);
 
-            // Buscar todos os registros existentes para este grupo de consultores e datas
-            const { data: existingRecords, error: fetchError } = await supabase
-                .from('credenciamentos')
-                .select('id, consultor_id, data')
-                .in('consultor_id', consultorIds)
-                .in('data', dateStrings);
+                // Buscar registros existentes apenas para este lote
+                const { data: existingRecords, error: fetchError } = await supabase
+                    .from('credenciamentos')
+                    .select('id, consultor_id, data')
+                    .in('consultor_id', chunkIds)
+                    .in('data', dateStrings);
 
-            if (fetchError) throw fetchError;
+                if (fetchError) throw fetchError;
 
-            const allPayload: any[] = [];
+                const chunkPayload: any[] = [];
 
-            for (const consultant of consultantsToProcess) {
-                for (const dateObj of datesToSave) {
-                    const day = dateObj.getDate();
-                    const values = dailyData[consultant.id]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
-                    const dateStr = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
+                for (const consultant of chunk) {
+                    for (const dateObj of datesToSave) {
+                        const day = dateObj.getDate();
+                        const values = dailyData[consultant.id]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
+                        const dateStr = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
 
-                    const existing = existingRecords?.find(r => r.consultor_id === consultant.id && r.data === dateStr);
+                        const existing = existingRecords?.find(r => r.consultor_id === consultant.id && r.data === dateStr);
 
-                    if (existing) {
-                        allPayload.push({
-                            id: existing.id,
-                            consultor_id: consultant.id,
-                            data: dateStr,
-                            cpf_count: values.cpf,
-                            cnpj_count: values.cnpj,
-                            visitas: values.visitas
-                        });
-                    } else if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
-                        allPayload.push({
-                            consultor_id: consultant.id,
-                            data: dateStr,
-                            cpf_count: values.cpf,
-                            cnpj_count: values.cnpj,
-                            visitas: values.visitas
-                        });
+                        if (existing) {
+                            chunkPayload.push({
+                                id: existing.id,
+                                consultor_id: consultant.id,
+                                data: dateStr,
+                                cpf_count: values.cpf,
+                                cnpj_count: values.cnpj,
+                                visitas: values.visitas
+                            });
+                        } else if (values.cpf !== 0 || values.cnpj !== 0 || values.visitas !== 0) {
+                            chunkPayload.push({
+                                consultor_id: consultant.id,
+                                data: dateStr,
+                                cpf_count: values.cpf,
+                                cnpj_count: values.cnpj,
+                                visitas: values.visitas
+                            });
+                        }
                     }
                 }
-            }
 
-            if (allPayload.length > 0) {
-                const { error: upsertError } = await supabase
-                    .from('credenciamentos')
-                    .upsert(allPayload);
+                if (chunkPayload.length > 0) {
+                    const { error: upsertError } = await supabase
+                        .from('credenciamentos')
+                        .upsert(chunkPayload);
 
-                if (upsertError) throw upsertError;
+                    if (upsertError) throw upsertError;
+                }
             }
 
             alert('Todos os dados da semana foram salvos com sucesso!');
             fetchData();
         } catch (err) {
             console.error('Erro ao salvar tudo:', err);
-            alert('Ocorreu um erro ao salvar os dados globais.');
+            alert('Ocorreu um erro ao salvar os dados globais. Verifique se o deploy da última versão foi concluído.');
         } finally {
             setLoading(false);
         }
