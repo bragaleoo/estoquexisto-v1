@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useContext, useMemo, useRef } from 'react';
 import { supabase } from '../supabase';
 import { AppContext } from '../App';
-import { LayoutGrid, Filter, Search, TrendingUp, Users, Target, Edit2, Plus, Save } from 'lucide-react';
+import { LayoutGrid, Filter, Search, TrendingUp, Users, Target, Edit2, Plus, Save, Loader2, CheckCircle2 } from 'lucide-react';
 import { SUPERVISORES } from '../constants';
 
 interface Credenciamento {
@@ -53,13 +53,14 @@ const ConsultorCredenciamento: React.FC = () => {
   const context = useContext(AppContext);
   const currentUser = context?.currentUser;
   
-  // Use supervisorUuid as default if profile is Supervisor
   const [supervisorFiltro, setSupervisorFiltro] = useState<string>(
       currentUser?.perfil === 'Supervisor' ? (currentUser.supervisorUuid || '') : ''
   );
   
   const [data, setData] = useState<Credenciamento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [consultores, setConsultores] = useState<{id: string, nome: string, supervisor_id: string}[]>([]);
@@ -67,6 +68,9 @@ const ConsultorCredenciamento: React.FC = () => {
   const [newEntry, setNewEntry] = useState({ consultor_id: '', data: new Date().toISOString().split('T')[0], cpf: 0, cnpj: 0, visitas: 0 });
   const [kpiPeriod, setKpiPeriod] = useState<'mensal' | 'semanal'>('semanal');
   
+  // Ref para controle de debounce de salvamento automático
+  const saveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
+
   useEffect(() => {
     const newDailyData: Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>> = {};
     data.forEach(cred => {
@@ -84,160 +88,76 @@ const ConsultorCredenciamento: React.FC = () => {
     setDailyData(newDailyData);
   }, [data, mes, ano]);
 
+  // Função para salvar uma única célula automaticamente
+  const autoSaveCell = async (consultorId: string, day: number, values: { cpf: number, cnpj: number, visitas: number }) => {
+    setIsSaving(true);
+    try {
+        const date = new Date(ano, mes - 1, day);
+        const dateStr = date.getFullYear() + '-' + 
+                        String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(date.getDate()).padStart(2, '0');
+
+        // Buscar ID existente para evitar conflito/RLS
+        const { data: existing } = await supabase
+            .from('credenciamentos')
+            .select('id')
+            .eq('consultor_id', consultorId)
+            .eq('data', dateStr)
+            .single();
+
+        const payload = {
+            consultor_id: consultorId,
+            data: dateStr,
+            cpf_count: Number(values.cpf) || 0,
+            cnpj_count: Number(values.cnpj) || 0,
+            visitas: Number(values.visitas) || 0
+        };
+
+        if (existing) {
+            await supabase.from('credenciamentos').update(payload).eq('id', existing.id);
+        } else if (payload.cpf_count > 0 || payload.cnpj_count > 0 || payload.visitas > 0) {
+            await supabase.from('credenciamentos').insert(payload);
+        }
+
+        setLastSaved(new Date());
+    } catch (err) {
+        console.error('Erro no salvamento automático:', err);
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   const handleInputChange = (consultorId: string, day: number, field: 'cpf' | 'cnpj' | 'visitas', value: number) => {
+    // 1. Atualizar estado local imediatamente para fluidez da UI
+    const newValues = {
+        ...(dailyData[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 }),
+        [field]: value
+    };
+
     setDailyData(prev => ({
         ...prev,
         [consultorId]: {
             ...prev[consultorId],
-            [day]: {
-                ...(prev[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 }),
-                [field]: value
-            }
+            [day]: newValues
         }
     }));
-  };
 
-  const handleSaveAll = async () => {
-    const datesToSave = weeks[semana - 1]?.days;
-    if (!datesToSave) return;
-    
-    setLoading(true);
-    try {
-        const allPayload = [];
-        
-        // Use filteredConsultores to save only visible/selected group
-        for (const c of filteredConsultores) {
-            for (const dateObj of datesToSave) {
-                const day = dateObj.getDate();
-                const values = dailyData[c.id]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
-                
-                // Formatar data consistentemente
-                const date = dateObj.getFullYear() + '-' + 
-                             String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + 
-                             String(dateObj.getDate()).padStart(2, '0');
-
-                // Só envia se houver algum valor
-                if (values.cpf > 0 || values.cnpj > 0 || values.visitas > 0) {
-                    allPayload.push({
-                        consultor_id: c.id,
-                        data: date,
-                        cpf_count: Number(values.cpf) || 0,
-                        cnpj_count: Number(values.cnpj) || 0,
-                        visitas: Number(values.visitas) || 0
-                    });
-                }
-            }
-        }
-
-        if (allPayload.length === 0) {
-            alert('Nenhum dado para salvar.');
-            setLoading(false);
-            return;
-        }
-
-        // 1. Buscar registros existentes para pegar os IDs (para evitar erro de RLS/onConflict)
-        const { data: existingRecords } = await supabase
-            .from('credenciamentos')
-            .select('id, consultor_id, data');
-
-        const existingMap = new Map();
-        existingRecords?.forEach(r => {
-            existingMap.set(`${r.consultor_id}_${r.data}`, r.id);
-        });
-
-        // 2. Mapear IDs para o payload
-        const finalPayload = allPayload.map(p => {
-            const key = `${p.consultor_id}_${p.data}`;
-            if (existingMap.has(key)) {
-                return { ...p, id: existingMap.get(key) };
-            }
-            return p;
-        });
-
-        // 3. Salvar em pedaços (chunks) para evitar erro de URL/Timeout
-        const chunkSize = 50;
-        for (let i = 0; i < finalPayload.length; i += chunkSize) {
-            const chunk = finalPayload.slice(i, i + chunkSize);
-            const { error } = await supabase
-                .from('credenciamentos')
-                .upsert(chunk);
-            
-            if (error) throw error;
-        }
-
-        alert('Todos os dados da semana salvos com sucesso!');
-        await fetchData();
-    } catch (err: any) {
-        console.error('Erro ao salvar tudo:', err);
-        alert(`Erro ao salvar dados: ${err.message || 'Verifique sua conexão'}`);
-    } finally {
-        setLoading(false);
+    // 2. Debounce do salvamento automático por célula
+    const cellKey = `${consultorId}_${day}`;
+    if (saveTimeoutRef.current[cellKey]) {
+        clearTimeout(saveTimeoutRef.current[cellKey]);
     }
-  };
 
-  const handleSaveRow = async (consultorId: string, week: number) => {
-    const datesToSave = weeks[week - 1]?.days;
-    if (!datesToSave) return;
-    
-    setLoading(true);
-    try {
-        const rowPayload = [];
-        for (const dateObj of datesToSave) {
-            const day = dateObj.getDate();
-            const values = dailyData[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
-            const date = dateObj.getFullYear() + '-' + 
-                         String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + 
-                         String(dateObj.getDate()).padStart(2, '0');
-
-            if (values.cpf > 0 || values.cnpj > 0 || values.visitas > 0) {
-                rowPayload.push({
-                    consultor_id: consultorId,
-                    data: date,
-                    cpf_count: Number(values.cpf) || 0,
-                    cnpj_count: Number(values.cnpj) || 0,
-                    visitas: Number(values.visitas) || 0
-                });
-            }
-        }
-
-        if (rowPayload.length === 0) {
-            alert('Nenhum dado para este consultor.');
-            setLoading(false);
-            return;
-        }
-
-        // Buscar IDs existentes para esta linha
-        const { data: existing } = await supabase
-            .from('credenciamentos')
-            .select('id, data')
-            .eq('consultor_id', consultorId);
-
-        const existingMap = new Map();
-        existing?.forEach(r => existingMap.set(r.data, r.id));
-
-        const finalRowPayload = rowPayload.map(p => {
-            if (existingMap.has(p.data)) {
-                return { ...p, id: existingMap.get(p.data) };
-            }
-            return p;
-        });
-
-        const { error } = await supabase.from('credenciamentos').upsert(finalRowPayload);
-        if (error) throw error;
-
-        alert('Dados do consultor salvos!');
-        await fetchData();
-    } catch (err: any) {
-        alert('Erro ao salvar consultor: ' + err.message);
-    } finally {
-        setLoading(false);
-    }
+    saveTimeoutRef.current[cellKey] = setTimeout(() => {
+        autoSaveCell(consultorId, day, newValues);
+        delete saveTimeoutRef.current[cellKey];
+    }, 800); // 800ms de espera após a última alteração na célula
   };
 
   useEffect(() => {
     fetchData();
     fetchConsultores();
-  }, [semana, supervisorFiltro]);
+  }, [semana, supervisorFiltro, mes, ano]);
 
   const fetchConsultores = async () => {
     let query = supabase.from('consultores').select('id, nome, supervisor_id').eq('status', 'ativo');
@@ -283,9 +203,8 @@ const ConsultorCredenciamento: React.FC = () => {
           )
         `);
 
-      if (supervisorFiltro) {
-          query = query.eq('consultores.supervisor_id', supervisorFiltro);
-      } else if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
+      // Se não for admin, filtra pelo supervisor fixo
+      if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
           query = query.eq('consultores.supervisor_id', currentUser.supervisorUuid);
       }
 
@@ -302,14 +221,23 @@ const ConsultorCredenciamento: React.FC = () => {
   const filteredData = useMemo(() => {
     return data.filter(d => {
       const matchesSearch = d.consultores?.nome.toLowerCase().includes(searchTerm.toLowerCase());
+      // Aplica filtro de supervisor em memória se for admin
+      if (currentUser?.perfil === 'Administrador' && supervisorFiltro) {
+          return matchesSearch && d.consultores?.supervisor_id === supervisorFiltro;
+      }
       return matchesSearch;
     });
-  }, [data, searchTerm]);
+  }, [data, searchTerm, supervisorFiltro, currentUser]);
 
   const filteredConsultores = useMemo(() => {
       return consultores.filter(c => c.nome.toLowerCase().includes(searchTerm.toLowerCase()))
                         .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [consultores, searchTerm]);
+
+  // Ordenação alfabética dos supervisores
+  const sortedSupervisores = useMemo(() => {
+      return [...SUPERVISORES].sort((a, b) => a.nome.localeCompare(b.nome));
+  }, []);
 
   const monthStats = useMemo(() => {
     const s = filteredData.reduce((acc, curr) => ({
@@ -342,23 +270,29 @@ const ConsultorCredenciamento: React.FC = () => {
       return { totalCred, percPJ, visitas: s.visitas };
   }, [filteredData, weeks, semana]);
 
-  if(loading && data.length === 0) return <div className="p-10 text-center">Carregando painel de credenciamentos...</div>;
+  if(loading && data.length === 0) return <div className="p-10 text-center text-slate-500">Carregando painel de credenciamentos...</div>;
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="flex justify-between items-center mb-8">
         <div>
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Credenciamentos</h1>
-            <p className="text-slate-500 mt-1">Acompanhamento de performance operacional</p>
+            <div className="flex items-center gap-2 mt-1">
+                <p className="text-slate-500">Acompanhamento de performance operacional</p>
+                {isSaving ? (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full text-[10px] font-bold animate-pulse">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        SALVANDO...
+                    </div>
+                ) : lastSaved && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-bold">
+                        <CheckCircle2 className="w-3 h-3" />
+                        SALVO {lastSaved.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                )}
+            </div>
         </div>
           <div className="flex items-center space-x-4">
-             <button 
-                onClick={handleSaveAll}
-                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all"
-             >
-                <Save className="w-4 h-4" />
-                Salvar Tudo
-             </button>
              <select value={`${mes}-${ano}`} onChange={(e) => {
                  const [m, a] = e.target.value.split('-').map(Number);
                  setMes(m);
@@ -376,11 +310,11 @@ const ConsultorCredenciamento: React.FC = () => {
              {currentUser?.perfil === 'Administrador' ? (
                 <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className="p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Todas Supervisões</option>
-                    {SUPERVISORES.map(s => <option key={s.uuid} value={s.uuid}>{s.nome}</option>)}
+                    {sortedSupervisores.map(s => <option key={s.uuid} value={s.uuid}>{s.nome}</option>)}
                 </select>
              ) : (
                 <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700">
-                    {SUPERVISORES.find(s => s.uuid === supervisorFiltro)?.nome || 'Minha Supervisão'}
+                    {sortedSupervisores.find(s => s.uuid === supervisorFiltro)?.nome || 'Minha Supervisão'}
                 </div>
              )}
           </div>
@@ -498,13 +432,12 @@ const ConsultorCredenciamento: React.FC = () => {
                             </div>
                         </th>
                     ))}
-                    <th className="px-6 py-4 text-right">Ação</th>
                 </tr>
             </thead>
             <tbody>
                         {filteredConsultores.length === 0 ? (
                             <tr>
-                                <td colSpan={weeks[semana - 1]?.days.length + 2} className="px-6 py-10 text-center text-slate-500">
+                                <td colSpan={weeks[semana - 1]?.days.length + 1} className="px-6 py-10 text-center text-slate-500">
                                     Nenhum consultor encontrado para esta supervisão.
                                 </td>
                             </tr>
@@ -520,7 +453,7 @@ const ConsultorCredenciamento: React.FC = () => {
                                                     <input 
                                                         type="number" 
                                                         min="0" 
-                                                        className="w-10 p-1 border rounded text-center text-xs" 
+                                                        className="w-10 p-1 border rounded text-center text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all" 
                                                         placeholder="PF" 
                                                         value={dailyData[c.id]?.[day]?.cpf || ''} 
                                                         onChange={e => handleInputChange(c.id, day, 'cpf', Number(e.target.value))} 
@@ -528,7 +461,7 @@ const ConsultorCredenciamento: React.FC = () => {
                                                     <input 
                                                         type="number" 
                                                         min="0" 
-                                                        className="w-10 p-1 border rounded text-center text-xs" 
+                                                        className="w-10 p-1 border rounded text-center text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all" 
                                                         placeholder="PJ" 
                                                         value={dailyData[c.id]?.[day]?.cnpj || ''} 
                                                         onChange={e => handleInputChange(c.id, day, 'cnpj', Number(e.target.value))} 
@@ -536,7 +469,7 @@ const ConsultorCredenciamento: React.FC = () => {
                                                     <input 
                                                         type="number" 
                                                         min="0" 
-                                                        className="w-10 p-1 border rounded text-center text-xs" 
+                                                        className="w-10 p-1 border rounded text-center text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all" 
                                                         placeholder="Vis" 
                                                         value={dailyData[c.id]?.[day]?.visitas || ''} 
                                                         onChange={e => handleInputChange(c.id, day, 'visitas', Number(e.target.value))} 
@@ -545,9 +478,6 @@ const ConsultorCredenciamento: React.FC = () => {
                                             </td>
                                         );
                                     })}
-                                    <td className="px-6 py-4 text-right">
-                                        <button onClick={() => handleSaveRow(c.id, semana)} className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors">Salvar</button>
-                                    </td>
                                 </tr>
                             ))
                         )}
