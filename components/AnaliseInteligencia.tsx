@@ -2,7 +2,7 @@ import { supabase } from '../supabase';
 import { AppContext } from '../App';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { DollarSign, Target, Activity, Calendar, History, TrendingUp, ChevronRight, Save, Trash2 } from 'lucide-react';
-import { useContext, useState, useEffect, useMemo } from 'react';
+import React, { useContext, useState, useEffect, useMemo } from 'react';
 
 interface InteligenciaInputs {
   referencia: string;
@@ -411,7 +411,7 @@ const RelatorioConsolidado: React.FC<{
     }, [filteredRecords]);
 
     // Meses disponíveis no banco para o filtro
-    const mesesDisponiveis = Array.from(new Set(allData.map(d => d.referencia))).sort((a, b) => b.localeCompare(a));
+    const mesesDisponiveis = Array.from(new Set(allData.map(d => d.referencia))).sort((a, b) => (b as string).localeCompare(a as string));
 
     if (loading) return <div className="text-center py-20 font-black text-slate-400 animate-pulse">CARREGANDO DADOS...</div>;
 

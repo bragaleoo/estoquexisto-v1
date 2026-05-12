@@ -1,132 +1,139 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { supabase } from '../supabase';
 import { AppContext } from '../App';
-import { LayoutGrid, Filter, Search, TrendingUp, Users, Target, Edit2, Plus, Save, CheckCircle } from 'lucide-react';
+import { SUPERVISORES } from '../constants';
+import { Save, RefreshCw, FileDown, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
-interface Credenciamento {
-    id: string;
+interface CredenciamentoData {
+    id?: string;
     consultor_id: string;
-    consultores: { nome: string; supervisor_id: string }; // Join
     data: string;
     cpf_count: number;
     cnpj_count: number;
     visitas: number;
 }
 
-const getWeeks = (ano: number, mes: number) => {
-    let allDays = [];
-    let date = new Date(ano, mes - 1, 1);
-
-    // Fill all days of the month
-    while (date.getMonth() === mes - 1) {
-        allDays.push(new Date(date));
-        date.setDate(date.getDate() + 1);
-    }
-
-    const weeksMap = new Map();
-
-    allDays.forEach(d => {
-        const tempDate = new Date(d);
-        // Get the Sunday of this day's week
-        const day = tempDate.getDay();
-        const diff = tempDate.getDate() - day;
-        const sunday = new Date(tempDate.setDate(diff));
-
-        // Key based on Sunday of the week
-        const key = `${sunday.getFullYear()}-${sunday.getMonth()}-${sunday.getDate()}`;
-
-        if (!weeksMap.has(key)) weeksMap.set(key, []);
-        weeksMap.get(key).push(d);
+const ConsultorCredenciamento: React.FC = () => {
+    const context = useContext(AppContext);
+    const { currentUser, maquinas } = context || {};
+    
+    const [selectedSupervisor, setSelectedSupervisor] = useState<string>(
+        currentUser?.perfil === 'Supervisor' ? (currentUser.supervisorId?.toString() || '') : ''
+    );
+    const [weekStart, setWeekStart] = useState<string>(() => {
+        const d = new Date();
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Ajuste para segunda-feira
+        const monday = new Date(d.setDate(diff));
+        return monday.toISOString().split('T')[0];
     });
 
-    // Convert map values to array
-    return Array.from(weeksMap.values()).map((days, i) => ({ id: i + 1, days }));
-};
-
-const ConsultorCredenciamento: React.FC = () => {
-    const [semana, setSemana] = useState(1);
-    const [mes, setMes] = useState(new Date().getMonth() + 1);
-    const [ano, setAno] = useState(new Date().getFullYear());
-    const [activeTab, setActiveTab] = useState<'acompanhamento' | 'relatorios'>('acompanhamento');
-    const weeks = useMemo(() => getWeeks(ano, mes), [ano, mes]);
-    const context = useContext(AppContext);
-    const currentUser = context?.currentUser;
-    const [supervisorFiltro, setSupervisorFiltro] = useState('');
-    const [data, setData] = useState<Credenciamento[]>([]);
-    const [supervisores, setSupervisores] = useState<{ id: string, nome: string }[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [consultores, setConsultores] = useState<{id: string, nome: string}[]>([]);
+    const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showModal, setShowModal] = useState(false);
-    const [consultores, setConsultores] = useState<{ id: string, nome: string, supervisor_id: string }[]>([]);
-    const [dailyData, setDailyData] = useState<Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>>>({});
-    const [newEntry, setNewEntry] = useState({ consultor_id: '', data: new Date().toISOString().split('T')[0], cpf: 0, cnpj: 0, visitas: 0 });
-    const [kpiPeriod, setKpiPeriod] = useState<'mensal' | 'semanal'>('semanal');
+    
+    // Objeto para armazenar as edições locais
+    // { [consultorId]: { [dataStr]: { cpf, cnpj, visitas } } }
+    const [dailyData, setDailyData] = useState<Record<string, Record<string, any>>>({});
+    const [isSaving, setIsSaving] = useState(false);
 
-    // Permissões: Coordenador e Administrador podem editar. Supervisor é apenas consultivo.
-    // No sistema atual, Coordenador loga com perfil \"Administrador\".
-    const canEdit = currentUser?.perfil === 'Administrador';
+    // Permissão de edição
+    const canEdit = currentUser?.perfil === 'Administrador' || currentUser?.perfil === 'Supervisor';
 
-    // State for editing
-    const [editingCredId, setEditingCredId] = useState<string | null>(null);
-    const [editValues, setEditValues] = useState({ cpf: 0, cnpj: 0, visitas: 0 });
+    const weekDays = useMemo(() => {
+        const days = [];
+        const start = new Date(weekStart + 'T12:00:00');
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            days.push({
+                dateStr: d.toISOString().split('T')[0],
+                label: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+            });
+        }
+        return days;
+    }, [weekStart]);
 
     useEffect(() => {
-        const newDailyData: Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>> = {};
-        data.forEach(cred => {
-            const [y, m, d] = cred.data.split('-').map(Number);
-            if (m === mes && y === ano) {
-                const dayOfMonth = d;
-                if (!newDailyData[cred.consultor_id]) newDailyData[cred.consultor_id] = {};
-                newDailyData[cred.consultor_id][dayOfMonth] = {
-                    cpf: cred.cpf_count,
-                    cnpj: cred.cnpj_count,
-                    visitas: cred.visitas
-                };
-            }
-        });
-        setDailyData(newDailyData);
-    }, [data, mes, ano]);
+        if (selectedSupervisor) {
+            fetchData();
+        }
+    }, [selectedSupervisor, weekStart]);
 
-    const handleInputChange = (consultorId: string, day: number, field: 'cpf' | 'cnpj' | 'visitas', value: number) => {
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            // 1. Buscar consultores da operação
+            const { data: consultoresData } = await supabase
+                .from('consultores')
+                .select('id, nome')
+                .eq('supervisor_id', selectedSupervisor)
+                .order('nome');
+
+            if (consultoresData) {
+                setConsultores(consultoresData);
+                
+                // 2. Buscar dados de credenciamento já existentes para esta semana
+                const { data: credData } = await supabase
+                    .from('credenciamentos')
+                    .select('*')
+                    .in('consultor_id', consultoresData.map(c => c.id))
+                    .gte('data', weekDays[0].dateStr)
+                    .lte('data', weekDays[6].dateStr);
+
+                const initialData: Record<string, Record<string, any>> = {};
+                credData?.forEach(row => {
+                    if (!initialData[row.consultor_id]) initialData[row.consultor_id] = {};
+                    initialData[row.consultor_id][row.data] = {
+                        id: row.id,
+                        cpf: row.cpf_count,
+                        cnpj: row.cnpj_count,
+                        visitas: row.visitas
+                    };
+                });
+                setDailyData(initialData);
+            }
+        } catch (err) {
+            console.error("Erro ao carregar dados:", err);
+        }
+        setLoading(false);
+    };
+
+    const handleInputChange = (consultorId: string, date: string, field: string, value: string) => {
         setDailyData(prev => ({
             ...prev,
             [consultorId]: {
                 ...prev[consultorId],
-                [day]: {
-                    ...(prev[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 }),
+                [date]: {
+                    ...(prev[consultorId]?.[date] || {}),
                     [field]: value
                 }
             }
         }));
     };
 
-    const handleSaveRow = async (consultorId: string, week: number) => {
-        const datesToSave = weeks[week - 1]?.days;
-        if (!datesToSave) return;
-        
-        setLoading(true);
+    const handleSaveRow = async (consultorId: string) => {
+        setIsSaving(true);
         try {
-            const dateStrings = datesToSave.map(d => 
-                d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-            );
+            const consultorEntries = dailyData[consultorId];
+            if (!consultorEntries) return;
 
-            const { data: existingRecords, error: fetchError } = await supabase
+            // Buscamos novamente os IDs atuais do banco para garantir consistência
+            const dateStrings = weekDays.map(d => d.dateStr);
+            const { data: existingRecords } = await supabase
                 .from('credenciamentos')
                 .select('id, data')
                 .eq('consultor_id', consultorId)
                 .in('data', dateStrings);
 
-            if (fetchError) throw fetchError;
-
             const allPayload: any[] = [];
-
-            for (const dateObj of datesToSave) {
-                const day = dateObj.getDate();
-                const values = dailyData[consultorId]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
-                const dateStr = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
+            
+            for (const day of weekDays) {
+                const dateStr = day.dateStr;
+                const values = consultorEntries[dateStr];
+                if (!values) continue;
 
                 const existing = existingRecords?.find(r => r.data === dateStr);
-
                 const payloadItem: any = {
                     consultor_id: consultorId,
                     data: dateStr,
@@ -146,62 +153,52 @@ const ConsultorCredenciamento: React.FC = () => {
             if (allPayload.length > 0) {
                 const { error: upsertError } = await supabase
                     .from('credenciamentos')
-                    .upsert(allPayload, { onConflict: 'consultor_id,data' });
+                    .upsert(allPayload);
 
                 if (upsertError) throw upsertError;
             }
-            
+
             alert('Dados do consultor salvos com sucesso!');
             fetchData();
-        } catch (error: any) {
-            console.error('Erro ao salvar consultor:', error);
-            alert(`Erro ao salvar dados: ${error.message || 'Erro desconhecido'}`);
-        } finally {
-            setLoading(false);
+        } catch (err: any) {
+            alert(`Erro ao salvar: ${err.message || 'Erro desconhecido'}`);
         }
+        setIsSaving(false);
     };
 
     const handleSaveAll = async () => {
-        const datesToSave = weeks[semana - 1]?.days;
-        const consultantsToProcess = consultores.filter(c => 
-            supervisorFiltro ? c.supervisor_id === supervisorFiltro : true
-        );
-
-        if (!datesToSave || consultantsToProcess.length === 0) return;
-        
-        if (!confirm(`Deseja salvar os lançamentos de todos os ${consultantsToProcess.length} consultores desta semana?`)) return;
-
-        setLoading(true);
+        if (!confirm('Deseja salvar as alterações de TODOS os consultores desta operação?')) return;
+        setIsSaving(true);
         try {
-            const dateStrings = datesToSave.map(d => 
-                d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
-            );
-
+            const dateStrings = weekDays.map(d => d.dateStr);
+            const consultorIds = consultores.map(c => c.id);
+            
+            // Processar em lotes (chunks) de consultores para evitar erros de URL/414
             const chunkSize = 20;
-            for (let i = 0; i < consultantsToProcess.length; i += chunkSize) {
-                const chunk = consultantsToProcess.slice(i, i + chunkSize);
-                const chunkIds = chunk.map(c => c.id);
-
-                const { data: existingRecords, error: fetchError } = await supabase
+            for (let i = 0; i < consultorIds.length; i += chunkSize) {
+                const chunkIds = consultorIds.slice(i, i + chunkSize);
+                
+                // Buscar registros existentes do chunk atual
+                const { data: existingRecords } = await supabase
                     .from('credenciamentos')
                     .select('id, consultor_id, data')
                     .in('consultor_id', chunkIds)
                     .in('data', dateStrings);
 
-                if (fetchError) throw fetchError;
-
                 const chunkPayload: any[] = [];
+                
+                for (const consultantId of chunkIds) {
+                    const consultorEntries = dailyData[consultantId];
+                    if (!consultorEntries) continue;
 
-                for (const consultant of chunk) {
-                    for (const dateObj of datesToSave) {
-                        const day = dateObj.getDate();
-                        const values = dailyData[consultant.id]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
-                        const dateStr = dateObj.getFullYear() + '-' + String(dateObj.getMonth() + 1).padStart(2, '0') + '-' + String(dateObj.getDate()).padStart(2, '0');
+                    for (const day of weekDays) {
+                        const dateStr = day.dateStr;
+                        const values = consultorEntries[dateStr];
+                        if (!values) continue;
 
-                        const existing = existingRecords?.find(r => r.consultor_id === consultant.id && r.data === dateStr);
-
+                        const existing = existingRecords?.find(r => r.consultor_id === consultantId && r.data === dateStr);
                         const payloadItem: any = {
-                            consultor_id: consultant.id,
+                            consultor_id: consultantId,
                             data: dateStr,
                             cpf_count: Number(values.cpf) || 0,
                             cnpj_count: Number(values.cnpj) || 0,
@@ -220,7 +217,7 @@ const ConsultorCredenciamento: React.FC = () => {
                 if (chunkPayload.length > 0) {
                     const { error: upsertError } = await supabase
                         .from('credenciamentos')
-                        .upsert(chunkPayload, { onConflict: 'consultor_id,data' });
+                        .upsert(chunkPayload);
 
                     if (upsertError) throw upsertError;
                 }
@@ -229,357 +226,209 @@ const ConsultorCredenciamento: React.FC = () => {
             alert('Todos os dados da semana foram salvos com sucesso!');
             fetchData();
         } catch (err: any) {
-            console.error('Erro ao salvar tudo:', err);
             alert(`Erro ao salvar dados globais: ${err.message || 'Erro desconhecido'}. Verifique se o banco de dados aceita os campos cpf_count, cnpj_count e visitas.`);
-        } finally {
-            setLoading(false);
         }
+        setIsSaving(false);
     };
 
-    useEffect(() => {
-        fetchData();
-        fetchConsultores();
-        fetchSupervisores();
-    }, [semana]);
-
-    const fetchSupervisores = async () => {
-        let query = supabase.from('supervisores').select('id, nome');
-        if (currentUser?.perfil === 'Supervisor' && currentUser?.supervisorUuid) {
-            query = query.eq('id', currentUser.supervisorUuid);
-        }
-        const { data } = await query;
-        if (data) {
-            const formattedData = data.map(s => ({
-                id: s.id,
-                nome: s.nome.includes(' - ') ? s.nome.split(' - ')[1].trim() : s.nome
-            }));
-            setSupervisores(formattedData.sort((a, b) => a.nome.localeCompare(b.nome)));
-
-            // Auto-select supervisor if only one is returned (e.g. for Supervisor profile)
-            if (formattedData.length === 1 && !supervisorFiltro) {
-                setSupervisorFiltro(formattedData[0].id);
-            }
-        }
+    const changeWeek = (direction: number) => {
+        const d = new Date(weekStart + 'T12:00:00');
+        d.setDate(d.getDate() + (direction * 7));
+        setWeekStart(d.toISOString().split('T')[0]);
     };
-
-    const fetchConsultores = async () => {
-        let query = supabase.from('consultores').select('id, nome, supervisor_id').eq('status', 'ativo');
-        if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
-            query = query.eq('supervisor_id', currentUser.supervisorUuid);
-        }
-        const { data } = await query;
-        if (data) setConsultores(data as { id: string, nome: string, supervisor_id: string }[]);
-    };
-
-    const handleCreate = async () => {
-        const { error } = await supabase.from('credenciamentos').insert({
-            consultor_id: newEntry.consultor_id,
-            data: newEntry.data,
-            cpf_count: newEntry.cpf,
-            cnpj_count: newEntry.cnpj,
-            visitas: newEntry.visitas
-        });
-        if (error) { console.error(error); alert(\"Erro ao criar cadastro\"); }
-        else {
-            setShowModal(false);
-            fetchData();
-        }
-    };
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            let query = supabase
-                .from('credenciamentos')
-                .select(`
-            id,
-            consultor_id,
-            data,
-            cpf_count,
-            cnpj_count,
-            visitas,
-            consultores:consultor_id!inner (nome, supervisor_id, status)
-        `);
-
-            if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
-                query = query.eq('consultores.supervisor_id', currentUser.supervisorUuid);
-            }
-
-            const { data: creds, error } = await query;
-            if (error) throw error;
-
-            // Filtragem manual para garantir apenas consultores ativos
-            setData((creds as any[] || []).filter(c => c.consultores?.status === 'ativo'));
-        } catch (error) {
-            console.error('Erro ao buscar dados:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const filteredData = useMemo(() => {
-        return data.filter(d => {
-            const matchName = d.consultores.nome.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchSupervisor = supervisorFiltro ? d.consultores.supervisor_id === supervisorFiltro : true;
-            const [y, m, day] = d.data.split('-').map(Number);
-            const matchMes = m === mes;
-            const matchAno = y === ano;
-            return matchName && matchSupervisor && matchMes && matchAno;
-        });
-    }, [data, searchTerm, supervisorFiltro, mes, ano]);
 
     const filteredConsultores = useMemo(() => {
-        return consultores.filter(c => {
-            const matchName = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchSupervisor = supervisorFiltro ? c.supervisor_id === supervisorFiltro : true;
-            return matchName && matchSupervisor;
-        }).sort((a, b) => a.nome.localeCompare(b.nome));
-    }, [consultores, searchTerm, supervisorFiltro]);
+        return consultores.filter(c => c.nome.toUpperCase().includes(searchTerm.toUpperCase()));
+    }, [consultores, searchTerm]);
 
-    const stats = useMemo(() => {
-        return filteredData.reduce((acc, curr) => ({
-            cpf: acc.cpf + (curr.cpf_count || 0),
-            cnpj: acc.cnpj + (curr.cnpj_count || 0),
-            visitas: acc.visitas + (curr.visitas || 0)
+    const getConsultorWeeklyTotals = (consultorId: string) => {
+        const data = dailyData[consultorId];
+        if (!data) return { cpf: 0, cnpj: 0, visitas: 0 };
+        return Object.values(data).reduce((acc, curr) => ({
+            cpf: acc.cpf + (Number(curr.cpf) || 0),
+            cnpj: acc.cnpj + (Number(curr.cnpj) || 0),
+            visitas: acc.visitas + (Number(curr.visitas) || 0),
         }), { cpf: 0, cnpj: 0, visitas: 0 });
-    }, [filteredData]);
-
-    const monthStats = useMemo(() => {
-        const totalCred = stats.cpf + stats.cnpj;
-        const percPJ = totalCred > 0 ? ((stats.cnpj / totalCred) * 100).toFixed(1) : '0';
-        return { totalCred, percPJ, visitas: stats.visitas };
-    }, [stats]);
-
-    const weekStats = useMemo(() => {
-        const selectedWeekDates = weeks[semana - 1]?.days || [];
-        const dateStrings = selectedWeekDates.map(d => {
-            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        });
-
-        const filteredWeekData = filteredData.filter(d => dateStrings.includes(d.data));
-
-        const s = filteredWeekData.reduce((acc, curr) => ({
-            cpf: acc.cpf + (curr.cpf_count || 0),
-            cnpj: acc.cnpj + (curr.cnpj_count || 0),
-            visitas: acc.visitas + (curr.visitas || 0)
-        }), { cpf: 0, cnpj: 0, visitas: 0 });
-
-        const totalCred = s.cpf + s.cnpj;
-        const percPJ = totalCred > 0 ? ((s.cnpj / totalCred) * 100).toFixed(1) : '0';
-        return { totalCred, percPJ, visitas: s.visitas };
-    }, [filteredData, weeks, semana]);
-
-    if (loading) return <div className=\"p-10 text-center\">Carregando painel de credenciamentos...</div>;
+    };
 
     return (
-        <div className=\"p-8 bg-slate-50 min-h-screen\">
-            <div className=\"flex justify-between items-center mb-8\">
-                <div>
-                    <h1 className=\"text-3xl font-extrabold text-slate-900 tracking-tight\">Credenciamentos</h1>
-                    <p className=\"text-slate-500 mt-1\">Acompanhamento de performance operacional</p>
+        <div className="p-4 md:p-8 space-y-6 bg-slate-50 min-h-screen">
+            {/* Header com Filtros */}
+            <div className="bg-white p-6 rounded-3xl border-2 border-slate-200 shadow-sm space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Registro de Credenciamentos</h1>
+                        <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Lançamento diário de performance por consultor</p>
+                    </div>
+                    <div className="flex gap-2">
+                        {canEdit && (
+                            <button 
+                                onClick={handleSaveAll}
+                                disabled={isSaving || !selectedSupervisor}
+                                className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:bg-slate-300 transition-all flex items-center gap-2"
+                            >
+                                <Save size={16} /> Salvar Tudo
+                            </button>
+                        )}
+                        <button onClick={fetchData} className="bg-slate-100 text-slate-600 p-3 rounded-2xl hover:bg-slate-200 transition-colors">
+                            <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
                 </div>
-                <div className=\"flex items-center space-x-4\">
 
-                    <select value={`${mes}-${ano}`} onChange={(e) => {
-                        const [m, a] = e.target.value.split('-').map(Number);
-                        setMes(m);
-                        setAno(a);
-                    }} className=\"p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500\">
-                        {Array.from({ length: 12 }).map((_, i) => {
-                            const m = i + 1;
-                            const a = new Date().getFullYear();
-                            return <option key={i} value={`${m}-${a}`}>{new Date(a, i).toLocaleString('pt-BR', { month: 'long' })}/{a}</option>
-                        })}
-                    </select>
-                    <select value={semana} onChange={(e) => setSemana(Number(e.target.value))} className=\"p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500\">
-                        {weeks.map(w => <option key={w.id} value={w.id}>Semana {w.id}</option>)}
-                    </select>
-                    {currentUser?.perfil === 'Administrador' ? (
-                        <select value={supervisorFiltro} onChange={(e) => setSupervisorFiltro(e.target.value)} className=\"p-2.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold shadow-sm focus:ring-2 focus:ring-blue-500\">
-                            <option value=\"\">Todas Supervisões</option>
-                            {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Operação / Supervisor</label>
+                        <select 
+                            disabled={currentUser?.perfil === 'Supervisor'}
+                            className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 transition-all"
+                            value={selectedSupervisor}
+                            onChange={(e) => setSelectedSupervisor(e.target.value)}
+                        >
+                            <option value="">Selecione...</option>
+                            {SUPERVISORES.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                         </select>
-                    ) : (
-                        <div className=\"p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold text-slate-700\">
-                            {supervisores.find(s => s.id === supervisorFiltro)?.nome || 'Minha Supervisão'}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Tabs */}
-            <div className=\"flex border-b border-slate-200 mb-6\">
-                <button className={`px-6 py-2 font-semibold text-sm ${activeTab === 'acompanhamento' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500'}`} onClick={() => setActiveTab('acompanhamento')}>Acompanhamento</button>
-                <button className={`px-6 py-2 font-semibold text-sm ${activeTab === 'relatorios' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500'}`} onClick={() => setActiveTab('relatorios')}>Relatórios</button>
-            </div>
-
-            {activeTab === 'relatorios' ? (
-                <>
-                    {/* Stats */}
-                    <div className=\"grid grid-cols-1 md:grid-cols-2 gap-6 mb-8\">
-                        {[
-                            { label: 'Resumo do Mês', stats: monthStats },
-                            { label: 'Resumo da Semana', stats: weekStats },
-                        ].map(block => (
-                            <div key={block.label} className=\"bg-white p-6 rounded-2xl shadow-sm border border-slate-200\">
-                                <h3 className=\"font-bold text-lg mb-4 text-slate-800\">{block.label}</h3>
-                                <div className=\"grid grid-cols-3 gap-4\">
-                                    <div className=\"text-center p-3 bg-slate-50 rounded-xl\">
-                                        <p className=\"text-xs text-slate-500 font-medium\">Creds</p>
-                                        <p className=\"text-xl font-bold text-indigo-600\">{block.stats.totalCred}</p>
-                                    </div>
-                                    <div className=\"text-center p-3 bg-slate-50 rounded-xl\">
-                                        <p className=\"text-xs text-slate-500 font-medium\">% PJ</p>
-                                        <p className=\"text-xl font-bold text-indigo-600\">{block.stats.percPJ}%</p>
-                                    </div>
-                                    <div className=\"text-center p-3 bg-slate-50 rounded-xl\">
-                                        <p className=\"text-xs text-slate-500 font-medium\">Visitas</p>
-                                        <p className=\"text-xl font-bold text-emerald-600\">{block.stats.visitas}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
                     </div>
 
-                    {/* Table Section */}
-                    <div className=\"bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8\">
-                        <div className=\"p-6 border-b border-slate-200 flex justify-between items-center\">
-                            <h2 className=\"text-lg font-bold text-slate-900\">Relatório de Performance (KPIs)</h2>
-                            <div className=\"flex bg-slate-100 p-1 rounded-lg\">
-                                <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'semanal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('semanal')}>Semanal</button>
-                                <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'mensal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('mensal')}>Mensal</button>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Semana de Referência</label>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => changeWeek(-1)} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100"><ChevronLeft size={18} /></button>
+                            <div className="flex-1 p-3 bg-indigo-50 text-indigo-700 text-center rounded-xl font-black text-xs">
+                                {new Date(weekDays[0].dateStr + 'T12:00:00').toLocaleDateString()} - {new Date(weekDays[6].dateStr + 'T12:00:00').toLocaleDateString()}
                             </div>
-                        </div>
-                        <div className=\"p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4\">
-                            {filteredConsultores.map(c => {
-                                const consultantDaily = dailyData[c.id] || {};
-                                const validDays = kpiPeriod === 'semanal'
-                                    ? (weeks[semana - 1]?.days.map(d => d.getDate()) || [])
-                                    : Object.keys(consultantDaily).map(Number);
-
-                                const totalCPFs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cpf || 0), 0);
-                                const totalCNPJs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cnpj || 0), 0);
-                                const totalVisitas = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.visitas || 0), 0);
-
-                                const totalCred = totalCPFs + totalCNPJs;
-                                const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
-
-                                const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
-                                const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
-                                return (
-                                    <div key={c.id} className=\"border p-4 rounded-lg\">
-                                        <div className=\"flex items-center gap-3 mb-2\">
-                                            <div className={`w-3 h-3 rounded-full ${color}`}></div>
-                                            <p className=\"text-sm font-semibold\">{c.nome}</p>
-                                        </div>
-                                        <div className=\"grid grid-cols-3 gap-2 text-center\">
-                                            <div className=\"text-xs\">
-                                                <p className=\"font-bold text-indigo-600\">{totalCred}</p>
-                                                <p className=\"text-[10px] text-slate-500\">Total Cred</p>
-                                            </div>
-                                            <div className=\"text-xs\">
-                                                <p className=\"font-bold text-indigo-600\">{percPJ}%</p>
-                                                <p className=\"text-[10px] text-slate-500\">% PJ</p>
-                                            </div>
-                                            <div className=\"text-xs\">
-                                                <p className=\"font-bold text-emerald-600\">{totalVisitas}</p>
-                                                <p className=\"text-[10px] text-slate-500\">Visitas</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            <button onClick={() => changeWeek(1)} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100"><ChevronRight size={18} /></button>
                         </div>
                     </div>
-                </>
-            ) : (
-                <div className=\"bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden\">
-                    <div className=\"p-6 border-b border-slate-200\">
-                        <div className=\"relative w-full max-w-sm\">
-                            <Search className=\"absolute left-3 top-3 w-4 h-4 text-slate-400\" />
-                            <input
-                                type=\"text\"
-                                placeholder=\"Buscar consultor...\"
-                                className=\"w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none\"
+
+                    <div className="space-y-1 md:col-span-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Filtrar Consultor</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input 
+                                type="text" 
+                                placeholder="NOME DO CONSULTOR..."
+                                className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 transition-all uppercase"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <table className=\"w-full text-sm text-left\">
-                        <thead className=\"text-xs text-slate-500 uppercase bg-slate-50\">
-                            <tr>
-                                <th className=\"px-6 py-4\">Consultor</th>
-                                {weeks[semana - 1]?.days.map((date, i) => (
-                                    <th key={i} className=\"px-2 py-4 text-center text-xs\">
-                                        {date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ({date.toLocaleDateString('pt-BR', { weekday: 'short' })})
-                                        <div className=\"flex justify-around text-[10px] text-slate-400 mt-1\">
-                                            <span>PF</span><span>PJ</span><span>Vis</span>
-                                        </div>
-                                    </th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {/* Consultores */}
-                            {filteredConsultores.map(c => (
-                                <tr key={c.id} className=\"border-t border-slate-100 hover:bg-slate-50\">
-                                    <td className=\"px-6 py-4 font-semibold text-slate-900\">{c.nome}</td>
-                                    {weeks[semana - 1]?.days.map((date, i) => {
-                                        const day = date.getDate();
-                                        return (
-                                            <td key={i} className=\"px-1 py-4 text-center\">
-                                                <div className=\"flex gap-0.5 justify-center\">
-                                                    <input 
-                                                        type=\"number\" 
-                                                        min=\"0\" 
-                                                        className={`w-10 p-1 border rounded text-center text-xs ${!canEdit ? 'bg-slate-50' : ''}`} 
-                                                        placeholder=\"PF\" 
-                                                        value={dailyData[c.id]?.[day]?.cpf || ''} 
-                                                        onChange={e => handleInputChange(c.id, day, 'cpf', Number(e.target.value))} 
-                                                        disabled={!canEdit}
-                                                    />
-                                                    <input 
-                                                        type=\"number\" 
-                                                        min=\"0\" 
-                                                        className={`w-10 p-1 border rounded text-center text-xs ${!canEdit ? 'bg-slate-50' : ''}`} 
-                                                        placeholder=\"PJ\" 
-                                                        value={dailyData[c.id]?.[day]?.cnpj || ''} 
-                                                        onChange={e => handleInputChange(c.id, day, 'cnpj', Number(e.target.value))} 
-                                                        disabled={!canEdit}
-                                                    />
-                                                    <input 
-                                                        type=\"number\" 
-                                                        min=\"0\" 
-                                                        className={`w-10 p-1 border rounded text-center text-xs ${!canEdit ? 'bg-slate-50' : ''}`} 
-                                                        placeholder=\"Vis\" 
-                                                        value={dailyData[c.id]?.[day]?.visitas || ''} 
-                                                        onChange={e => handleInputChange(c.id, day, 'visitas', Number(e.target.value))} 
-                                                        disabled={!canEdit}
-                                                    />
-                                                </div>
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
+            {/* Tabela de Lançamentos */}
+            <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[1000px] border-collapse">
+                    <thead>
+                        <tr className="bg-slate-50 border-b-2 border-slate-100">
+                            <th className="p-4 text-left text-[10px] font-black text-slate-400 uppercase sticky left-0 bg-slate-50 z-10 w-64">Consultor</th>
+                            {weekDays.map(day => (
+                                <th key={day.dateStr} className="p-4 text-center border-l border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase">{day.label.split(' ')[0]}</p>
+                                    <p className="text-xs font-black text-slate-900">{day.label.split(' ')[1]}</p>
+                                </th>
                             ))}
-                        </tbody>
-                    </table>
-                    {canEdit && (
-                        <div className=\"p-6 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-4\">
-                            <p className=\"text-xs text-slate-500 font-medium\">
-                                {filteredConsultores.length} consultores exibidos. Os dados serão salvos para a Semana {semana}.
-                            </p>
-                            <button 
-                                onClick={handleSaveAll}
-                                className=\"flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-0.5 transition-all active:scale-95\"
-                            >
-                                <Save className=\"w-4 h-4\" />
-                                Salvar Todos os Dados da Semana
-                            </button>
-                        </div>
-                    )}
+                            <th className="p-4 text-center border-l-2 border-slate-200 bg-indigo-50/30 w-32">Total Semanal</th>
+                            <th className="p-4 text-center border-l border-slate-100 w-24">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {filteredConsultores.length > 0 ? (
+                            filteredConsultores.map(c => {
+                                const totals = getConsultorWeeklyTotals(c.id);
+                                return (
+                                    <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="p-4 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100">
+                                            <p className="font-black text-slate-900 text-xs uppercase">{c.nome}</p>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase">ID: {c.id.slice(0, 8)}</p>
+                                        </td>
+                                        
+                                        {weekDays.map(day => {
+                                            const values = dailyData[c.id]?.[day.dateStr] || { cpf: '', cnpj: '', visitas: '' };
+                                            const isToday = day.dateStr === new Date().toISOString().split('T')[0];
+                                            
+                                            return (
+                                                <td key={day.dateStr} className={`p-2 border-l border-slate-100 ${isToday ? 'bg-indigo-50/20' : ''}`}>
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-[8px] font-black text-slate-300 w-6 uppercase">CPF</span>
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder="0"
+                                                                readOnly={!canEdit}
+                                                                className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-center text-xs font-black text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+                                                                value={values.cpf ?? ''}
+                                                                onChange={(e) => handleInputChange(c.id, day.dateStr, 'cpf', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-[8px] font-black text-slate-300 w-6 uppercase">CNPJ</span>
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder="0"
+                                                                readOnly={!canEdit}
+                                                                className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-center text-xs font-black text-indigo-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+                                                                value={values.cnpj ?? ''}
+                                                                onChange={(e) => handleInputChange(c.id, day.dateStr, 'cnpj', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-[8px] font-black text-slate-300 w-6 uppercase">VISIT</span>
+                                                            <input 
+                                                                type="text" 
+                                                                placeholder="0"
+                                                                readOnly={!canEdit}
+                                                                className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-center text-xs font-black text-emerald-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all disabled:opacity-50"
+                                                                value={values.visitas ?? ''}
+                                                                onChange={(e) => handleInputChange(c.id, day.dateStr, 'visitas', e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+
+                                        <td className="p-4 border-l-2 border-slate-200 bg-slate-50/50">
+                                            <div className="space-y-1 text-center">
+                                                <p className="text-[10px] font-black text-slate-400">CPF: <span className="text-slate-900">{totals.cpf}</span></p>
+                                                <p className="text-[10px] font-black text-indigo-400">CNPJ: <span className="text-indigo-700">{totals.cnpj}</span></p>
+                                                <p className="text-[10px] font-black text-emerald-400">VIS: <span className="text-emerald-700">{totals.visitas}</span></p>
+                                            </div>
+                                        </td>
+
+                                        <td className="p-4 border-l border-slate-100 text-center">
+                                            {canEdit && (
+                                                <button 
+                                                    onClick={() => handleSaveRow(c.id)}
+                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                                    title="Salvar apenas este consultor"
+                                                >
+                                                    <Save size={20} />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        ) : (
+                            <tr>
+                                <td colSpan={10} className="p-20 text-center">
+                                    <Filter className="mx-auto text-slate-200 mb-4" size={48} />
+                                    <p className="text-slate-400 font-black uppercase text-sm">Nenhum consultor encontrado para esta operação</p>
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            
+            {isSaving && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center">
+                    <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                        <p className="font-black text-slate-900 uppercase text-xs tracking-widest">Gravando no Banco de Dados...</p>
+                    </div>
                 </div>
             )}
         </div>

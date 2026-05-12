@@ -1,4 +1,3 @@
-
 import React, { useState, useContext, useMemo, useEffect } from 'react';
 import stringSimilarity from 'string-similarity';
 import { AppContext } from '../App';
@@ -130,7 +129,7 @@ const Cadastros: React.FC = () => {
 
     const filteredInventory = useMemo(() => {
         // Remove duplicatas baseadas no ID da máquina antes de qualquer processamento
-        const uniqueMaquinas: Maquina[] = Array.from(new Map(maquinas.map((m: Maquina) => [m.id, m])).values());
+        const uniqueMaquinas: Maquina[] = Array.from(new Map<string, Maquina>(maquinas.map((m: Maquina) => [m.id, m])).values());
         
         let list: Maquina[] = [...uniqueMaquinas];
         // ... (resto da lógica de filtro)
@@ -241,6 +240,7 @@ const Cadastros: React.FC = () => {
         });
         const worksheet = (window as any).XLSX.utils.json_to_sheet(dataToExport);
         const workbook = (window as any).XLSX.utils.book_new();
+        (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, "Estoque_Xisto");
         (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, "Estoque_Xisto");
         (window as any).XLSX.writeFile(workbook, `Estoque_Xisto_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
@@ -592,7 +592,7 @@ const Cadastros: React.FC = () => {
                                 <option value="VENDA">VENDA</option><option value="POS_VENDA">PÓS-VENDA</option><option value="DEVOLUCAO">DEVOLUÇÃO</option><option value="ERRO_OPERACIONAL">ERRO OPERACIONAL</option><option value="OUTRO">OUTRO</option>
                             </select>
                             <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.dataBaixa} onChange={e => setBatchData({...batchData, dataBaixa: e.target.value})} />
-                            <textarea placeholder="OBSERVAÇÕES" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24" value={batchData.obs} onChange={e => setBatchData({...batchData, obs: e.target.value})} />
+                            <textarea placeholder="OBSERVAÇÕES" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24" value={batchData.obs} onChange={e => setBatchData({...batchData, some: e.target.value})} />
                         </>
                     ) : batchAction === 'regiao' ? (
                         <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.novaRegiao} onChange={e => setBatchData({...batchData, novaRegiao: e.target.value as Regiao})}>
