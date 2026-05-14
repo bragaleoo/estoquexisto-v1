@@ -592,7 +592,12 @@ const Cadastros: React.FC = () => {
                                 <option value="VENDA">VENDA</option><option value="POS_VENDA">PÓS-VENDA</option><option value="DEVOLUCAO">DEVOLUÇÃO</option><option value="ERRO_OPERACIONAL">ERRO OPERACIONAL</option><option value="OUTRO">OUTRO</option>
                             </select>
                             <input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.dataBaixa} onChange={e => setBatchData({...batchData, dataBaixa: e.target.value})} />
-                            <textarea placeholder="OBSERVAÇÕES" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24" value={batchData.obs} onChange={e => setBatchData({...batchData, some: e.target.value})} />
+                            <textarea 
+                                placeholder="OBSERVAÇÕES" 
+                                className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase focus:border-blue-600 outline-none" 
+                                value={batchData.obs} 
+                                onChange={e => setBatchData(prev => ({...prev, obs: e.target.value.toUpperCase()}))} 
+                            />
                         </>
                     ) : batchAction === 'regiao' ? (
                         <select className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={batchData.novaRegiao} onChange={e => setBatchData({...batchData, novaRegiao: e.target.value as Regiao})}>
