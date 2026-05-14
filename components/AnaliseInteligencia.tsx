@@ -19,7 +19,7 @@ interface InteligenciaInputs {
 const AnaliseInteligencia: React.FC = () => {
   const context = useContext(AppContext);
   const currentUser = context?.currentUser;
-  const [activeTab, setActiveTab] = useState<'registro' | 'relatorios'>('registro');
+  const [activeTab, setActiveTab] = useState<'registro' | 'historico' | 'relatorios'>('registro');
   const [supervisores, setSupervisores] = useState<{id: string, nome: string}[]>([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>('');
   
@@ -126,6 +126,23 @@ const AnaliseInteligencia: React.FC = () => {
     setIsSaving(false);
   };
 
+  const deleteRecord = async (referencia: string) => {
+    if (!selectedSupervisor || !window.confirm(`Tem certeza que deseja excluir o registro de ${referencia}?`)) return;
+    
+    const { error } = await supabase
+        .from('inteligencia_dados')
+        .delete()
+        .eq('supervisor_id', selectedSupervisor)
+        .eq('referencia', referencia);
+        
+    if (!error) {
+        await fetchHistorico(selectedSupervisor);
+        alert("Registro excluído com sucesso!");
+    } else {
+        alert("Erro ao excluir: " + error.message);
+    }
+  };
+
   const calcularResultados = (inputData: InteligenciaInputs) => {
     const { totalDiasUteis, diasUteisDecorridos, headcount, faturamentoReal, quantidadeVendas, metaProdutividade } = inputData;
     if (diasUteisDecorridos === 0 || headcount === 0) return null;
@@ -174,209 +191,279 @@ const AnaliseInteligencia: React.FC = () => {
             >
                 Lançamentos
             </button>
-            {currentUser?.perfil === 'Administrador' && (
-                <button 
-                    onClick={() => setActiveTab('relatorios')} 
-                    className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'relatorios' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
-                >
-                    Consolidado
-                </button>
-            )}
+            <button 
+                onClick={() => setActiveTab('historico')} 
+                className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'historico' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+                Histórico
+            </button>
+            <button 
+                onClick={() => setActiveTab('relatorios')} 
+                className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all ${activeTab === 'relatorios' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+            >
+                Relatórios
+            </button>
         </div>
       </div>
 
-      {activeTab === 'registro' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Coluna de Registro (Esquerda) */}
-            <div className="lg:col-span-4 space-y-6">
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50">
-                    <h2 className="text-lg font-black text-slate-800 mb-6 flex items-center gap-2">
-                        <Calendar className="text-indigo-500" size={20} />
-                        Parâmetros do Mês
-                    </h2>
+      {activeTab === 'registro' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+            <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm">
+                <h2 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-2">
+                    <Calendar className="text-indigo-500" size={24} />
+                    Parâmetros do Mês
+                </h2>
 
-                    <div className="space-y-4">
-                        {currentUser?.perfil === 'Administrador' && (
-                            <div className="pb-4 border-b border-slate-100">
-                                <label className="text-xs font-black text-slate-400 uppercase mb-2 block">Supervisor / Equipe</label>
-                                <select 
-                                    value={selectedSupervisor} 
-                                    onChange={(e) => setSelectedSupervisor(e.target.value)} 
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none"
-                                >
-                                    <option value="">Selecione...</option>
-                                    {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                                </select>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 gap-4">
-                            {Object.entries(labels).map(([key, label]) => (
-                                <div key={key}>
-                                    <label className="text-xs font-black text-slate-400 uppercase mb-1 block">{label}</label>
-                                    <input
-                                        type={key === 'referencia' ? 'text' : 'number'}
-                                        step={key === 'metaProdutividade' || key === 'valorParcelado' || key === 'quantidadeCNPJs' ? '0.01' : '1'}
-                                        value={formInputs[key as keyof InteligenciaInputs]}
-                                        onChange={(e) => setFormInputs(prev => ({ ...prev, [key]: key === 'referencia' ? e.target.value : Number(e.target.value) }))}
-                                        placeholder={key === 'referencia' ? 'YYYY-MM' : '0'}
-                                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none shadow-sm"
-                                    />
-                                </div>
-                            ))}
+                <div className="space-y-6">
+                    {currentUser?.perfil === 'Administrador' && (
+                        <div className="pb-6 border-b border-slate-100">
+                            <label className="text-xs font-black text-slate-400 uppercase mb-2 block">Supervisor / Equipe</label>
+                            <select 
+                                value={selectedSupervisor} 
+                                onChange={(e) => setSelectedSupervisor(e.target.value)} 
+                                className="w-full md:w-1/2 p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="">Selecione...</option>
+                                {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                            </select>
                         </div>
+                    )}
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {Object.entries(labels).map(([key, label]) => (
+                            <div key={key}>
+                                <label className="text-xs font-black text-slate-400 uppercase mb-2 block">{label}</label>
+                                <input
+                                    type={key === 'referencia' ? 'text' : 'number'}
+                                    step={key === 'metaProdutividade' || key === 'valorParcelado' || key === 'quantidadeCNPJs' ? '0.01' : '1'}
+                                    value={formInputs[key as keyof InteligenciaInputs]}
+                                    onChange={(e) => setFormInputs(prev => ({ ...prev, [key]: key === 'referencia' ? e.target.value : Number(e.target.value) }))}
+                                    placeholder={key === 'referencia' ? 'YYYY-MM' : '0'}
+                                    className="w-full p-4 bg-white border border-slate-200 rounded-xl text-base font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none shadow-sm"
+                                />
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="pt-6 border-t border-slate-100 flex justify-end">
                         <button 
                             onClick={saveAnaliseData}
                             disabled={isSaving || !selectedSupervisor}
-                            className="w-full mt-4 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:shadow-none"
+                            className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:shadow-none"
                         >
-                            {isSaving ? <Activity className="animate-spin" size={18} /> : <Save size={18} />}
+                            {isSaving ? <Activity className="animate-spin" size={20} /> : <Save size={20} />}
                             {isSaving ? 'Gravando...' : 'Salvar Registro'}
                         </button>
                     </div>
                 </div>
-
-                {/* Histórico Simples */}
-                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                    <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <History size={16} />
-                        Histórico Recente
-                    </h3>
-                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                        {historicoSupervisor.map((h, i) => (
-                            <button 
-                                key={i}
-                                onClick={() => setFormInputs(h)}
-                                className="w-full p-3 flex items-center justify-between bg-slate-50 hover:bg-indigo-50 rounded-xl transition-colors group"
-                            >
-                                <div className="text-left">
-                                    <p className="text-sm font-bold text-slate-800">{h.referencia}</p>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase">Faturamento: {h.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                </div>
-                                <ChevronRight className="text-slate-300 group-hover:text-indigo-500" size={16} />
-                            </button>
-                        ))}
-                        {historicoSupervisor.length === 0 && (
-                            <div className="py-8 text-center text-slate-400">
-                                <p className="text-xs font-bold">Nenhum histórico encontrado.</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
             </div>
+        </div>
+      )}
 
-            {/* Coluna de Visualização (Direita) */}
-            <div className="lg:col-span-8 space-y-8">
-                {selectedSupervisor && resultados ? (
-                    <>
-                        {/* KPI Cards Revisitados */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm group hover:border-indigo-200 transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                                        <DollarSign size={24} />
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-black text-slate-400 uppercase">Projeção Final</p>
-                                        <p className="text-2xl font-black text-slate-900">{resultados.projFaturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                    </div>
-                                </div>
-                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                    <div 
-                                        className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
-                                        style={{ width: `${Math.min(100, (formInputs.faturamentoReal / resultados.projFaturamento) * 100)}%` }}
-                                    />
-                                </div>
-                                <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase">Realizado: {formInputs.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                            </div>
-
-                            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm group hover:border-indigo-200 transition-all">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className={`p-3 rounded-2xl transition-all group-hover:text-white ${resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'bg-indigo-100 text-indigo-600 group-hover:bg-indigo-500' : 'bg-amber-100 text-amber-600 group-hover:bg-amber-500'}`}>
-                                        <Activity size={24} />
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-xs font-black text-slate-400 uppercase">Produtividade Atual</p>
-                                        <p className="text-3xl font-black text-slate-900">{resultados.produtividadeAtual.toFixed(2)}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                        {resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'Meta Superada' : `Abaixo da Meta (${formInputs.metaProdutividade.toFixed(2)})`}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Cards Secundários */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div className="bg-slate-900 p-6 rounded-3xl shadow-xl text-white">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 bg-white/10 rounded-2xl">
-                                        <Target className="text-indigo-400" size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-400 uppercase">Meta de Vendas (Mín.)</p>
-                                        <p className="text-2xl font-black">{Math.round(resultados.metaVendas)} <span className="text-xs text-slate-500 font-bold uppercase ml-1">Para o mês</span></p>
-                                    </div>
-                                </div>
-                                <div className="pt-4 border-t border-white/10">
-                                    <p className="text-xs font-bold text-slate-400 uppercase flex items-center justify-between">
-                                        Faltam: 
-                                        <span className="text-indigo-400 text-sm">{Math.max(0, Math.round(resultados.metaVendas) - formInputs.quantidadeVendas)} vendas</span>
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="bg-indigo-600 p-6 rounded-3xl shadow-xl text-white">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 bg-white/10 rounded-2xl">
-                                        <TrendingUp className="text-white" size={24} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-bold text-indigo-200 uppercase">Necessidade Diária</p>
-                                        <p className="text-2xl font-black">{resultados.necessidadeDiaria.toFixed(1)} <span className="text-sm font-medium opacity-50">/dia</span></p>
-                                    </div>
-                                </div>
-                                <p className="text-[10px] font-bold text-indigo-100 uppercase mt-2">Ritmo necessário nos próximos {formInputs.totalDiasUteis - formInputs.diasUteisDecorridos} dias úteis.</p>
-                            </div>
-                        </div>
-
-                        {/* Gráfico Principal */}
-                        <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
-                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-8">Evolução do Faturamento vs Projeção</h3>
-                            <div className="h-80">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={[{ name: formInputs.referencia, Real: formInputs.faturamentoReal, Proj: resultados.projFaturamento }]}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} tickFormatter={(val) => `R$ ${val/1000}k`} />
-                                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)'}} />
-                                        <Bar dataKey="Real" fill="#4f46e5" radius={[12, 12, 12, 12]} maxBarSize={60} />
-                                        <Bar dataKey="Proj" fill="#e2e8f0" radius={[12, 12, 12, 12]} maxBarSize={60} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-20 bg-white rounded-[40px] border-2 border-dashed border-slate-200">
-                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                            <Activity className="text-slate-300" size={40} />
-                        </div>
-                        <h3 className="text-xl font-black text-slate-800 uppercase">Aguardando Seleção</h3>
-                        <p className="text-slate-400 font-medium max-w-xs mt-2">Selecione uma equipe ao lado para visualizar as métricas de inteligência e projeções.</p>
+      {activeTab === 'historico' && (
+        <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                    <History className="text-indigo-500" size={24} />
+                    Histórico da Equipe
+                </h3>
+                {!selectedSupervisor && <p className="text-sm font-bold text-amber-500 bg-amber-50 px-4 py-2 rounded-lg">Selecione uma equipe para ver o histórico</p>}
+                
+                {selectedSupervisor && currentUser?.perfil === 'Administrador' && (
+                    <div className="flex-1 max-w-sm ml-auto">
+                        <select 
+                            value={selectedSupervisor} 
+                            onChange={(e) => setSelectedSupervisor(e.target.value)} 
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none"
+                        >
+                            <option value="">Alternar Equipe...</option>
+                            {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                        </select>
                     </div>
                 )}
             </div>
+            
+            {selectedSupervisor ? (
+                <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th className="p-4 text-xs font-black text-slate-400 uppercase">Referência</th>
+                            <th className="p-4 text-xs font-black text-slate-400 uppercase text-right">Faturamento</th>
+                            <th className="p-4 text-xs font-black text-slate-400 uppercase text-right">Vendas</th>
+                            <th className="p-4 text-xs font-black text-slate-400 uppercase text-center">Meta Config.</th>
+                            <th className="p-4 text-xs font-black text-slate-400 uppercase text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {historicoSupervisor.map((h, i) => (
+                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-4 font-bold text-slate-900 text-sm">{h.referencia}</td>
+                                <td className="p-4 text-right font-black text-slate-900 text-sm">{h.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                <td className="p-4 text-right font-black text-slate-900 text-sm">{h.quantidadeVendas}</td>
+                                <td className="p-4 text-center font-bold text-slate-500 text-sm">{h.metaProdutividade.toFixed(2)}</td>
+                                <td className="p-4 text-center space-x-2">
+                                    <button 
+                                        onClick={() => { setFormInputs(h); setActiveTab('registro'); }}
+                                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors"
+                                    >
+                                        Editar
+                                    </button>
+                                    <button 
+                                        onClick={() => deleteRecord(h.referencia)}
+                                        className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors inline-flex align-middle"
+                                        title="Excluir"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                        {historicoSupervisor.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="p-8 text-center text-slate-400 font-bold text-sm">Nenhum registro encontrado para esta equipe.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            ) : (
+                <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl">
+                    <p className="text-slate-400 font-bold">Selecione um supervisor no filtro superior (aba Lançamentos) ou certifique-se de que sua equipe está carregada.</p>
+                </div>
+            )}
         </div>
-      ) : (
-        /* ABA DE RELATÓRIO CONSOLIDADO */
-        <RelatorioConsolidado 
-            supervisores={supervisores} 
-            calcularResultados={calcularResultados}
-        />
+      )}
+
+      {activeTab === 'relatorios' && (
+          <div className="space-y-12 animate-in fade-in duration-500">
+            {selectedSupervisor && resultados ? (
+                <div className="space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                            <Target className="text-indigo-500" size={24} />
+                            Visão da Equipe Selecionada ({formInputs.referencia})
+                        </h2>
+                        {currentUser?.perfil === 'Administrador' && (
+                            <select 
+                                value={selectedSupervisor} 
+                                onChange={(e) => setSelectedSupervisor(e.target.value)} 
+                                className="w-full md:w-auto p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            >
+                                <option value="">Alternar Equipe...</option>
+                                {supervisores.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                            </select>
+                        )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm group hover:border-indigo-200 transition-all">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                                    <DollarSign size={24} />
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-black text-slate-400 uppercase">Projeção Final</p>
+                                    <p className="text-2xl font-black text-slate-900">{resultados.projFaturamento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                </div>
+                            </div>
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div 
+                                    className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
+                                    style={{ width: `${Math.min(100, (formInputs.faturamentoReal / (resultados.projFaturamento || 1)) * 100)}%` }}
+                                />
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-2 font-bold uppercase">Realizado: {formInputs.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm group hover:border-indigo-200 transition-all">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className={`p-3 rounded-2xl transition-all group-hover:text-white ${resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'bg-indigo-100 text-indigo-600 group-hover:bg-indigo-500' : 'bg-amber-100 text-amber-600 group-hover:bg-amber-500'}`}>
+                                    <Activity size={24} />
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-black text-slate-400 uppercase">Produtividade Atual</p>
+                                    <p className="text-3xl font-black text-slate-900">{resultados.produtividadeAtual.toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'Meta Superada' : `Abaixo da Meta (${formInputs.metaProdutividade.toFixed(2)})`}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-slate-900 p-6 rounded-3xl shadow-xl text-white">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="p-3 bg-white/10 rounded-2xl">
+                                    <Target className="text-indigo-400" size={24} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-400 uppercase">Meta de Vendas (Mín.)</p>
+                                    <p className="text-2xl font-black">{Math.round(resultados.metaVendas)} <span className="text-xs text-slate-500 font-bold uppercase ml-1">Para o mês</span></p>
+                                </div>
+                            </div>
+                            <div className="pt-4 border-t border-white/10">
+                                <p className="text-xs font-bold text-slate-400 uppercase flex items-center justify-between">
+                                    Faltam: 
+                                    <span className="text-indigo-400 text-sm">{Math.max(0, Math.round(resultados.metaVendas) - formInputs.quantidadeVendas)} vendas</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-indigo-600 p-6 rounded-3xl shadow-xl text-white">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="p-3 bg-white/10 rounded-2xl">
+                                    <TrendingUp className="text-white" size={24} />
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-indigo-200 uppercase">Necessidade Diária</p>
+                                    <p className="text-2xl font-black">{resultados.necessidadeDiaria.toFixed(1)} <span className="text-sm font-medium opacity-50">/dia</span></p>
+                                </div>
+                            </div>
+                            <p className="text-[10px] font-bold text-indigo-100 uppercase mt-2">Ritmo necessário nos próximos {formInputs.totalDiasUteis - formInputs.diasUteisDecorridos} dias úteis.</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm">
+                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-8">Evolução do Faturamento vs Projeção</h3>
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={[{ name: formInputs.referencia, Real: formInputs.faturamentoReal, Proj: resultados.projFaturamento }]}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} />
+                                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} tickFormatter={(val) => `R$ ${val/1000}k`} />
+                                    <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)'}} />
+                                    <Bar dataKey="Real" fill="#4f46e5" radius={[12, 12, 12, 12]} maxBarSize={60} />
+                                    <Bar dataKey="Proj" fill="#e2e8f0" radius={[12, 12, 12, 12]} maxBarSize={60} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-white">
+                    <div className="w-20 h-20 mx-auto bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                        <Activity className="text-slate-300" size={40} />
+                    </div>
+                    <h3 className="text-xl font-black text-slate-800 uppercase">Nenhuma Equipe Selecionada</h3>
+                    <p className="text-slate-400 font-medium max-w-xs mx-auto mt-2">Para ver os KPIs detalhados, vá em Lançamentos ou Histórico e selecione sua equipe.</p>
+                </div>
+            )}
+
+            {currentUser?.perfil === 'Administrador' && (
+                <div className="space-y-6 pt-8 border-t border-slate-200">
+                    <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                        <Activity className="text-indigo-500" size={24} />
+                        Visão Global (Consolidado)
+                    </h2>
+                    <RelatorioConsolidado 
+                        supervisores={supervisores} 
+                        calcularResultados={calcularResultados}
+                    />
+                </div>
+            )}
+          </div>
       )}
     </div>
   );
