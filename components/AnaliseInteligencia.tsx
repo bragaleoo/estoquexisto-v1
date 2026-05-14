@@ -13,6 +13,7 @@ interface InteligenciaInputs {
   quantidadeVendas: number;
   valorParcelado: number;
   quantidadeCNPJs: number;
+  metaProdutividade: number;
 }
 
 const AnaliseInteligencia: React.FC = () => {
@@ -36,6 +37,7 @@ const AnaliseInteligencia: React.FC = () => {
     quantidadeVendas: 0,
     valorParcelado: 0,
     quantidadeCNPJs: 0,
+    metaProdutividade: 0.40,
   };
 
   const [formInputs, setFormInputs] = useState<InteligenciaInputs>(defaultInputs);
@@ -87,6 +89,7 @@ const AnaliseInteligencia: React.FC = () => {
             quantidadeVendas: d.quantidade_vendas,
             valorParcelado: d.valor_parcelado,
             quantidadeCNPJs: d.quantidade_cnpjs,
+            metaProdutividade: d.meta_produtividade ?? 0.40,
         }));
         setHistoricoSupervisor(history);
         
@@ -111,6 +114,7 @@ const AnaliseInteligencia: React.FC = () => {
         quantidade_vendas: formInputs.quantidadeVendas,
         valor_parcelado: formInputs.valorParcelado,
         quantidade_cnpjs: formInputs.quantidadeCNPJs,
+        meta_produtividade: formInputs.metaProdutividade,
     });
     
     if (!error) {
@@ -123,17 +127,17 @@ const AnaliseInteligencia: React.FC = () => {
   };
 
   const calcularResultados = (inputData: InteligenciaInputs) => {
-    const { totalDiasUteis, diasUteisDecorridos, headcount, faturamentoReal, quantidadeVendas } = inputData;
+    const { totalDiasUteis, diasUteisDecorridos, headcount, faturamentoReal, quantidadeVendas, metaProdutividade } = inputData;
     if (diasUteisDecorridos === 0 || headcount === 0) return null;
     
     const projFaturamento = (faturamentoReal / diasUteisDecorridos) * totalDiasUteis;
     const produtividadeAtual = (quantidadeVendas / diasUteisDecorridos) / headcount;
-    const metaVendas040 = 0.40 * totalDiasUteis * headcount;
+    const metaVendas = metaProdutividade * totalDiasUteis * headcount;
     const diasRestantes = Math.max(1, totalDiasUteis - diasUteisDecorridos);
-    const vendasFaltantes040 = Math.floor(Math.max(0, metaVendas040 - quantidadeVendas));
-    const necessidadeDiaria040 = (vendasFaltantes040 / diasRestantes);
+    const vendasFaltantes = Math.floor(Math.max(0, metaVendas - quantidadeVendas));
+    const necessidadeDiaria = (vendasFaltantes / diasRestantes);
 
-    return { projFaturamento, produtividadeAtual, metaVendas040, necessidadeDiaria040 };
+    return { projFaturamento, produtividadeAtual, metaVendas, necessidadeDiaria };
   };
 
   const resultados = useMemo(() => {
@@ -145,10 +149,11 @@ const AnaliseInteligencia: React.FC = () => {
       totalDiasUteis: 'Total de Dias Úteis',
       diasUteisDecorridos: 'Dias Úteis Decorridos',
       headcount: 'Headcount (Consultores)',
+      metaProdutividade: 'Meta Produtividade (Vendas/Dia)',
       faturamentoReal: 'Faturamento Real (R$)',
       quantidadeVendas: 'Qtd. Vendas',
-      valorParcelado: 'Valor Parcelado',
-      quantidadeCNPJs: 'Qtd. CNPJs',
+      valorParcelado: 'Valor Parcelado (%)',
+      quantidadeCNPJs: 'Mix CNPJs (%)',
   };
 
   return (
@@ -211,6 +216,7 @@ const AnaliseInteligencia: React.FC = () => {
                                     <label className="text-xs font-black text-slate-400 uppercase mb-1 block">{label}</label>
                                     <input
                                         type={key === 'referencia' ? 'text' : 'number'}
+                                        step={key === 'metaProdutividade' || key === 'valorParcelado' || key === 'quantidadeCNPJs' ? '0.01' : '1'}
                                         value={formInputs[key as keyof InteligenciaInputs]}
                                         onChange={(e) => setFormInputs(prev => ({ ...prev, [key]: key === 'referencia' ? e.target.value : Number(e.target.value) }))}
                                         placeholder={key === 'referencia' ? 'YYYY-MM' : '0'}
@@ -287,7 +293,7 @@ const AnaliseInteligencia: React.FC = () => {
 
                             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm group hover:border-indigo-200 transition-all">
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className={`p-3 rounded-2xl transition-all group-hover:text-white ${resultados.produtividadeAtual >= 0.40 ? 'bg-indigo-100 text-indigo-600 group-hover:bg-indigo-500' : 'bg-amber-100 text-amber-600 group-hover:bg-amber-500'}`}>
+                                    <div className={`p-3 rounded-2xl transition-all group-hover:text-white ${resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'bg-indigo-100 text-indigo-600 group-hover:bg-indigo-500' : 'bg-amber-100 text-amber-600 group-hover:bg-amber-500'}`}>
                                         <Activity size={24} />
                                     </div>
                                     <div className="text-right">
@@ -296,8 +302,8 @@ const AnaliseInteligencia: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${resultados.produtividadeAtual >= 0.40 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                        {resultados.produtividadeAtual >= 0.40 ? 'Meta Superada' : 'Abaixo da Meta (0.40)'}
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                        {resultados.produtividadeAtual >= formInputs.metaProdutividade ? 'Meta Superada' : `Abaixo da Meta (${formInputs.metaProdutividade.toFixed(2)})`}
                                     </span>
                                 </div>
                             </div>
@@ -312,13 +318,13 @@ const AnaliseInteligencia: React.FC = () => {
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-slate-400 uppercase">Meta de Vendas (Mín.)</p>
-                                        <p className="text-2xl font-black">{Math.round(resultados.metaVendas040)} <span className="text-xs text-slate-500 font-bold uppercase ml-1">Para o mês</span></p>
+                                        <p className="text-2xl font-black">{Math.round(resultados.metaVendas)} <span className="text-xs text-slate-500 font-bold uppercase ml-1">Para o mês</span></p>
                                     </div>
                                 </div>
                                 <div className="pt-4 border-t border-white/10">
                                     <p className="text-xs font-bold text-slate-400 uppercase flex items-center justify-between">
                                         Faltam: 
-                                        <span className="text-indigo-400 text-sm">{Math.max(0, Math.round(resultados.metaVendas040) - formInputs.quantidadeVendas)} vendas</span>
+                                        <span className="text-indigo-400 text-sm">{Math.max(0, Math.round(resultados.metaVendas) - formInputs.quantidadeVendas)} vendas</span>
                                     </p>
                                 </div>
                             </div>
@@ -330,7 +336,7 @@ const AnaliseInteligencia: React.FC = () => {
                                     </div>
                                     <div>
                                         <p className="text-xs font-bold text-indigo-200 uppercase">Necessidade Diária</p>
-                                        <p className="text-2xl font-black">{resultados.necessidadeDiaria040.toFixed(1)} <span className="text-sm font-medium opacity-50">/dia</span></p>
+                                        <p className="text-2xl font-black">{resultados.necessidadeDiaria.toFixed(1)} <span className="text-sm font-medium opacity-50">/dia</span></p>
                                     </div>
                                 </div>
                                 <p className="text-[10px] font-bold text-indigo-100 uppercase mt-2">Ritmo necessário nos próximos {formInputs.totalDiasUteis - formInputs.diasUteisDecorridos} dias úteis.</p>
@@ -462,9 +468,11 @@ const RelatorioConsolidado: React.FC<{
                             <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} />
                             <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '16px', border: 'none'}} />
                             <Bar dataKey="prod" radius={[8, 8, 8, 8]}>
-                                {filteredRecords.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={(entry.quantidade_vendas / (entry.dias_uteis_decorridos || 1) / (entry.headcount || 1)) >= 0.40 ? '#4f46e5' : '#fbbf24'} />
-                                ))}
+                                {filteredRecords.map((entry, index) => {
+                                    const prod = (entry.quantidade_vendas / (entry.dias_uteis_decorridos || 1) / (entry.headcount || 1));
+                                    const meta = entry.meta_produtividade ?? 0.40;
+                                    return <Cell key={`cell-${index}`} fill={prod >= meta ? '#4f46e5' : '#fbbf24'} />
+                                })}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
@@ -486,6 +494,7 @@ const RelatorioConsolidado: React.FC<{
                     <tbody className="divide-y divide-slate-100">
                         {filteredRecords.map((d, i) => {
                             const prod = (d.quantidade_vendas / (d.dias_uteis_decorridos || 1) / (d.headcount || 1));
+                            const meta = d.meta_produtividade ?? 0.40;
                             const supNome = supervisores.find(s => s.id === d.supervisor_id)?.nome || 'Unknown';
                             return (
                                 <tr key={i} className="hover:bg-slate-50 transition-colors">
@@ -494,8 +503,8 @@ const RelatorioConsolidado: React.FC<{
                                     <td className="p-5 text-right font-black text-slate-900 text-sm">{d.faturamento_real.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                                     <td className="p-5 text-right font-black text-slate-900 text-sm">{d.quantidade_vendas}</td>
                                     <td className="p-5 text-center">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-black ${prod >= 0.40 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                            {prod.toFixed(2)}
+                                        <span className={`px-3 py-1 rounded-full text-xs font-black ${prod >= meta ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {prod.toFixed(2)} <span className="opacity-50 ml-1 text-[9px]">(Meta: {meta.toFixed(2)})</span>
                                         </span>
                                     </td>
                                 </tr>
