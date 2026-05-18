@@ -479,7 +479,7 @@ const Cadastros: React.FC = () => {
                                         <SortIndicator field="responsavel" />
                                     </div>
                                 </th>
-                                <th className="p-5"></th>
+                                {!isSupervisor && <th className="p-5"></th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
@@ -507,7 +507,7 @@ const Cadastros: React.FC = () => {
                                             <p className="text-[9px] font-black text-slate-500 uppercase">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
                                         </td>
                                         <td className="p-5">
-                                            <button onClick={e => openEditModal(e, m)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"><EditIcon className="w-4 h-4" /></button>
+                                            {!isSupervisor && <button onClick={e => openEditModal(e, m)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"><EditIcon className="w-4 h-4" /></button>}
                                         </td>
                                     </tr>
                                 );

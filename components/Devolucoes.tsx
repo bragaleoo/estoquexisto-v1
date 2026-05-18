@@ -181,7 +181,9 @@ const Devolucoes: React.FC = () => {
                 </div>
                 <div className="flex gap-4">
                     <button onClick={handleExportExcel} className="bg-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-emerald-800 transition flex items-center gap-2 font-black uppercase text-xs">Exportar Excel</button>
-                    <button onClick={() => setIsCreateModalOpen(true)} className="bg-red-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-red-800 transition flex items-center gap-2 font-black uppercase text-xs"><RefreshCwIcon className="w-5 h-5" /> Nova Devolução</button>
+                    {!isSupervisor && (
+                        <button onClick={() => setIsCreateModalOpen(true)} className="bg-red-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-red-800 transition flex items-center gap-2 font-black uppercase text-xs"><RefreshCwIcon className="w-5 h-5" /> Nova Devolução</button>
+                    )}
                 </div>
             </div>
 
@@ -246,7 +248,11 @@ const Devolucoes: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="p-5 font-black text-xs text-blue-800 uppercase">{d.codigo_rastreio || '-'}</td>
-                                    <td className="p-5"><button onClick={() => openShippingModal(d)} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase hover:bg-black transition whitespace-nowrap">Devolução</button></td>
+                                    <td className="p-5">
+                                        {!isSupervisor && (
+                                            <button onClick={() => openShippingModal(d)} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase hover:bg-black transition whitespace-nowrap">Devolução</button>
+                                        )}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

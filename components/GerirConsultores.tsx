@@ -140,9 +140,11 @@ const GerirConsultores: React.FC = () => {
                                 </select>
                             )}
                         </div>
-                        <button onClick={() => setView('create')} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2">
-                            <Plus className="w-5 h-5"/> Novo Consultor
-                        </button>
+                        {currentUser?.perfil !== 'Supervisor' && (
+                            <button onClick={() => setView('create')} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2">
+                                <Plus className="w-5 h-5"/> Novo Consultor
+                            </button>
+                        )}
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
@@ -156,9 +158,11 @@ const GerirConsultores: React.FC = () => {
                                             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">ATIVO</span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600 inline-flex">
-                                                <XCircle className="w-5 h-5" />
-                                            </button>
+                                            {currentUser?.perfil !== 'Supervisor' && (
+                                                <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600 inline-flex">
+                                                    <XCircle className="w-5 h-5" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -177,9 +181,11 @@ const GerirConsultores: React.FC = () => {
                                             <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">INATIVO</span>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600 inline-flex">
-                                                <CheckCircle className="w-5 h-5" />
-                                            </button>
+                                            {currentUser?.perfil !== 'Supervisor' && (
+                                                <button onClick={() => toggleStatus(c)} className="text-slate-500 hover:text-blue-600 inline-flex">
+                                                    <CheckCircle className="w-5 h-5" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

@@ -445,20 +445,20 @@ const ConsultorCredenciamento: React.FC = () => {
                                         <td key={i} className={`px-1 py-4 text-center border-r ${isPending ? 'bg-blue-50/30' : ''} transition-colors`}>
                                             <div className="flex gap-1 justify-center px-1">
                                                 <input 
-                                                    type="number" min="0" 
-                                                    className={`w-10 p-1.5 border rounded text-center text-xs outline-none transition-all ${cellData.cpf > 0 ? 'bg-white border-blue-200 text-blue-700 font-bold' : 'bg-slate-50 border-slate-200 text-slate-400'}`} 
+                                                    type="number" min="0" disabled={currentUser?.perfil !== 'Administrador'}
+                                                    className={`w-12 p-2 border rounded text-center text-xs outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${cellData.cpf > 0 ? 'bg-white border-blue-200 text-blue-700 font-bold' : 'bg-slate-50 border-slate-200 text-slate-400'}`} 
                                                     placeholder="0" value={cellData.cpf || ''} 
                                                     onChange={e => handleInputChange(c.id, day, 'cpf', Number(e.target.value))} 
                                                 />
                                                 <input 
-                                                    type="number" min="0" 
-                                                    className={`w-10 p-1.5 border rounded text-center text-xs outline-none transition-all ${cellData.cnpj > 0 ? 'bg-white border-blue-200 text-blue-700 font-bold' : 'bg-slate-50 border-slate-200 text-slate-400'}`} 
+                                                    type="number" min="0" disabled={currentUser?.perfil !== 'Administrador'}
+                                                    className={`w-12 p-2 border rounded text-center text-xs outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${cellData.cnpj > 0 ? 'bg-white border-blue-200 text-blue-700 font-bold' : 'bg-slate-50 border-slate-200 text-slate-400'}`} 
                                                     placeholder="0" value={cellData.cnpj || ''} 
                                                     onChange={e => handleInputChange(c.id, day, 'cnpj', Number(e.target.value))} 
                                                 />
                                                 <input 
-                                                    type="number" min="0" 
-                                                    className={`w-10 p-1.5 border rounded text-center text-xs outline-none transition-all ${cellData.visitas > 0 ? 'bg-white border-emerald-200 text-emerald-700 font-bold' : 'bg-slate-50 border-slate-200 text-slate-400'}`} 
+                                                    type="number" min="0" disabled={currentUser?.perfil !== 'Administrador'}
+                                                    className={`w-12 p-2 border rounded text-center text-xs outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${cellData.visitas > 0 ? 'bg-white border-emerald-200 text-emerald-700 font-bold' : 'bg-slate-50 border-slate-200 text-slate-400'}`} 
                                                     placeholder="0" value={cellData.visitas || ''} 
                                                     onChange={e => handleInputChange(c.id, day, 'visitas', Number(e.target.value))} 
                                                 />

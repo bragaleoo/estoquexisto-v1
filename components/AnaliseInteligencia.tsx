@@ -239,22 +239,25 @@ const AnaliseInteligencia: React.FC = () => {
                                     value={formInputs[key as keyof InteligenciaInputs]}
                                     onChange={(e) => setFormInputs(prev => ({ ...prev, [key]: key === 'referencia' ? e.target.value : Number(e.target.value) }))}
                                     placeholder={key === 'referencia' ? 'YYYY-MM' : '0'}
-                                    className="w-full p-4 bg-white border border-slate-200 rounded-xl text-base font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none shadow-sm"
+                                    disabled={currentUser?.perfil === 'Supervisor'}
+                                    className="w-full p-4 bg-white border border-slate-200 rounded-xl text-base font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none shadow-sm disabled:opacity-50 disabled:bg-slate-100"
                                 />
                             </div>
                         ))}
                     </div>
 
-                    <div className="pt-6 border-t border-slate-100 flex justify-end">
-                        <button 
-                            onClick={saveAnaliseData}
-                            disabled={isSaving || !selectedSupervisor}
-                            className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:shadow-none"
-                        >
-                            {isSaving ? <Activity className="animate-spin" size={20} /> : <Save size={20} />}
-                            {isSaving ? 'Gravando...' : 'Salvar Registro'}
-                        </button>
-                    </div>
+                    {currentUser?.perfil !== 'Supervisor' && (
+                        <div className="pt-6 border-t border-slate-100 flex justify-end">
+                            <button 
+                                onClick={saveAnaliseData}
+                                disabled={isSaving || !selectedSupervisor}
+                                className="px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:shadow-none"
+                            >
+                                {isSaving ? <Activity className="animate-spin" size={20} /> : <Save size={20} />}
+                                {isSaving ? 'Gravando...' : 'Salvar Registro'}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -291,7 +294,9 @@ const AnaliseInteligencia: React.FC = () => {
                             <th className="p-4 text-xs font-black text-slate-400 uppercase text-right">Faturamento</th>
                             <th className="p-4 text-xs font-black text-slate-400 uppercase text-right">Vendas</th>
                             <th className="p-4 text-xs font-black text-slate-400 uppercase text-center">Meta Config.</th>
-                            <th className="p-4 text-xs font-black text-slate-400 uppercase text-center">Ações</th>
+                            {currentUser?.perfil !== 'Supervisor' && (
+                                <th className="p-4 text-xs font-black text-slate-400 uppercase text-center">Ações</th>
+                            )}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -301,21 +306,23 @@ const AnaliseInteligencia: React.FC = () => {
                                 <td className="p-4 text-right font-black text-slate-900 text-sm">{h.faturamentoReal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                                 <td className="p-4 text-right font-black text-slate-900 text-sm">{h.quantidadeVendas}</td>
                                 <td className="p-4 text-center font-bold text-slate-500 text-sm">{h.metaProdutividade.toFixed(2)}</td>
-                                <td className="p-4 text-center space-x-2">
-                                    <button 
-                                        onClick={() => { setFormInputs(h); setActiveTab('registro'); }}
-                                        className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors"
-                                    >
-                                        Editar
-                                    </button>
-                                    <button 
-                                        onClick={() => deleteRecord(h.referencia)}
-                                        className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors inline-flex align-middle"
-                                        title="Excluir"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </td>
+                                {currentUser?.perfil !== 'Supervisor' && (
+                                    <td className="p-4 text-center space-x-2">
+                                        <button 
+                                            onClick={() => { setFormInputs(h); setActiveTab('registro'); }}
+                                            className="px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors"
+                                        >
+                                            Editar
+                                        </button>
+                                        <button 
+                                            onClick={() => deleteRecord(h.referencia)}
+                                            className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors inline-flex align-middle"
+                                            title="Excluir"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                )}
                             </tr>
                         ))}
                         {historicoSupervisor.length === 0 && (
