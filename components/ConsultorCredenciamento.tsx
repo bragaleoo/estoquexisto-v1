@@ -398,7 +398,7 @@ const ConsultorCredenciamento: React.FC = () => {
           </div>
         </>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
           <div className="p-6 border-b border-slate-200">
                <div className="relative w-full max-w-sm">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
@@ -410,7 +410,7 @@ const ConsultorCredenciamento: React.FC = () => {
               </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
             <table className="w-full text-sm text-left border-collapse" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                 <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b sticky top-0 z-20">
                     <tr>
