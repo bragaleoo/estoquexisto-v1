@@ -60,6 +60,9 @@ const ConsultorCredenciamento: React.FC = () => {
   const [dailyData, setDailyData] = useState<Record<string, Record<number, { cpf: number, cnpj: number, visitas: number }>>>({});
   const [newEntry, setNewEntry] = useState({ consultor_id: '', data: new Date().toISOString().split('T')[0], cpf: 0, cnpj: 0, visitas: 0 });
   const [kpiPeriod, setKpiPeriod] = useState<'mensal' | 'semanal'>('semanal');
+  const [kpiSearch, setKpiSearch] = useState('');
+  const [kpiStatusFilter, setKpiStatusFilter] = useState<'todos' | 'verde_escuro' | 'verde_claro' | 'amarelo' | 'vermelho'>('todos');
+  const [kpiSort, setKpiSort] = useState<'nome' | 'cred_desc' | 'cred_asc' | 'visitas_desc' | 'pj_desc'>('nome');
   
   // Controle de concorrência e fila
   const saveQueueRef = useRef<Set<string>>(new Set());
@@ -352,48 +355,121 @@ const ConsultorCredenciamento: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-            <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+            {/* Cabeçalho KPI */}
+            <div className="p-6 border-b border-slate-200">
+              <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
                 <h2 className="text-lg font-bold text-slate-900">Relatório de Performance (KPIs)</h2>
                 <div className="flex bg-slate-100 p-1 rounded-lg">
-                    <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'semanal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('semanal')}>Semanal</button>
-                    <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'mensal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('mensal')}>Mensal</button>
+                  <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'semanal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('semanal')}>Semanal</button>
+                  <button className={`px-4 py-1 text-sm font-semibold rounded-md transition-all ${kpiPeriod === 'mensal' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`} onClick={() => setKpiPeriod('mensal')}>Mensal</button>
                 </div>
+              </div>
+              {/* Barra de filtros */}
+              <div className="flex flex-wrap gap-3">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                  <input type="text" placeholder="Buscar consultor..." value={kpiSearch} onChange={e => setKpiSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <select value={kpiStatusFilter} onChange={e => setKpiStatusFilter(e.target.value as any)}
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="todos">Todas as cores</option>
+                  <option value="verde_escuro">🟢 Verde escuro</option>
+                  <option value="verde_claro">🟢 Verde claro (semanal)</option>
+                  <option value="amarelo">🟡 Amarelo</option>
+                  <option value="vermelho">🔴 Vermelho</option>
+                </select>
+                <select value={kpiSort} onChange={e => setKpiSort(e.target.value as any)}
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="nome">Ordenar: Nome A-Z</option>
+                  <option value="cred_desc">Ordenar: + Vendas</option>
+                  <option value="cred_asc">Ordenar: - Vendas</option>
+                  <option value="visitas_desc">Ordenar: + Visitas</option>
+                  <option value="pj_desc">Ordenar: + % PJ</option>
+                </select>
+              </div>
             </div>
-             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {filteredConsultores.map(c => {
-                      const consultantDaily = dailyData[c.id] || {};
-                      const validDays = kpiPeriod === 'semanal' ? (weeks[semana - 1]?.days.map(d => d.getDate()) || []) : Object.keys(consultantDaily).map(Number);
-                      const totalCPFs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cpf || 0), 0);
-                      const totalCNPJs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cnpj || 0), 0);
-                      const totalVisitas = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.visitas || 0), 0);
-                      const totalCred = totalCPFs + totalCNPJs;
-                      const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
-                     const color = kpiPeriod === 'mensal'
-                       ? (totalCred >= 9 ? 'bg-emerald-900' : totalCred >= 5 ? 'bg-yellow-400' : 'bg-red-500')
-                       : (totalCred === 0 ? 'bg-red-500' : totalCred === 1 ? 'bg-yellow-400' : totalCred === 2 ? 'bg-emerald-400' : 'bg-emerald-900');
-                     return (
-                         <div key={c.id} className="border p-4 rounded-lg bg-white hover:border-blue-200 transition-colors">
-                             <div className="flex items-center gap-3 mb-2">
-                                 <div className={`w-3 h-3 rounded-full ${color}`}></div>
-                                 <p className="text-sm font-semibold truncate">{c.nome}</p>
-                             </div>
-                             <div className="grid grid-cols-3 gap-2 text-center border-t pt-3 mt-1">
-                                 <div className="text-xs">
-                                     <p className="font-bold text-slate-900">{totalCred}</p>
-                                     <p className="text-[10px] text-slate-500 uppercase">Cred</p>
-                                 </div>
-                                 <div className="text-xs">
-                                     <p className="font-bold text-blue-600">{percPJ}%</p>
-                                     <p className="text-[10px] text-slate-500 uppercase">% PJ</p>
-                                 </div>
-                                 <div className="text-xs">
-                                     <p className="font-bold text-emerald-600">{totalVisitas}</p>
-                                     <p className="text-[10px] text-slate-500 uppercase">Vis</p>
-                                 </div>
-                             </div>
-                         </div>
-                     );
-                 })}
+            {/* Cards KPI */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(() => {
+                const getColorKey = (totalCred: number) =>
+                  kpiPeriod === 'mensal'
+                    ? (totalCred >= 9 ? 'verde_escuro' : totalCred >= 5 ? 'amarelo' : 'vermelho')
+                    : (totalCred === 0 ? 'vermelho' : totalCred === 1 ? 'amarelo' : totalCred === 2 ? 'verde_claro' : 'verde_escuro');
+
+                const colorClass = (key: string) =>
+                  key === 'verde_escuro' ? 'bg-emerald-900' : key === 'verde_claro' ? 'bg-emerald-400' : key === 'amarelo' ? 'bg-yellow-400' : 'bg-red-500';
+
+                const borderClass = (key: string) =>
+                  key === 'verde_escuro' ? 'border-emerald-200' : key === 'verde_claro' ? 'border-emerald-100' : key === 'amarelo' ? 'border-yellow-100' : 'border-red-100';
+
+                const bgClass = (key: string) =>
+                  key === 'verde_escuro' ? 'bg-emerald-50' : key === 'verde_claro' ? 'bg-emerald-50/50' : key === 'amarelo' ? 'bg-yellow-50' : 'bg-red-50';
+
+                const enriched = filteredConsultores
+                  .map(c => {
+                    const consultantDaily = dailyData[c.id] || {};
+                    const validDays = kpiPeriod === 'semanal' ? (weeks[semana - 1]?.days.map(d => d.getDate()) || []) : Object.keys(consultantDaily).map(Number);
+                    const totalCPFs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cpf || 0), 0);
+                    const totalCNPJs = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.cnpj || 0), 0);
+                    const totalVisitas = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.visitas || 0), 0);
+                    const totalCred = totalCPFs + totalCNPJs;
+                    const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0.0';
+                    const colorKey = getColorKey(totalCred);
+                    return { c, totalCPFs, totalCNPJs, totalVisitas, totalCred, percPJ, colorKey };
+                  })
+                  .filter(({ c, colorKey }) => {
+                    const matchesName = c.nome.toLowerCase().includes(kpiSearch.toLowerCase());
+                    const matchesStatus = kpiStatusFilter === 'todos' || colorKey === kpiStatusFilter;
+                    return matchesName && matchesStatus;
+                  })
+                  .sort((a, b) => {
+                    if (kpiSort === 'cred_desc') return b.totalCred - a.totalCred;
+                    if (kpiSort === 'cred_asc') return a.totalCred - b.totalCred;
+                    if (kpiSort === 'visitas_desc') return b.totalVisitas - a.totalVisitas;
+                    if (kpiSort === 'pj_desc') return parseFloat(b.percPJ) - parseFloat(a.percPJ);
+                    return a.c.nome.localeCompare(b.c.nome);
+                  });
+
+                if (enriched.length === 0) return (
+                  <div className="col-span-4 py-10 text-center text-slate-400 text-sm">Nenhum consultor encontrado com esses filtros.</div>
+                );
+
+                return enriched.map(({ c, totalCPFs, totalCNPJs, totalVisitas, totalCred, percPJ, colorKey }) => (
+                  <div key={c.id} className={`border-2 p-4 rounded-xl transition-all hover:shadow-md ${borderClass(colorKey)} ${bgClass(colorKey)}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${colorClass(colorKey)}`}></div>
+                      <p className="text-xs font-bold text-slate-800 leading-tight line-clamp-2">{c.nome}</p>
+                    </div>
+                    {/* Métricas principais */}
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className="text-center p-2 bg-white/70 rounded-lg">
+                        <p className="text-lg font-extrabold text-slate-900">{totalCred}</p>
+                        <p className="text-[9px] text-slate-500 uppercase font-semibold">Total Cred</p>
+                      </div>
+                      <div className="text-center p-2 bg-white/70 rounded-lg">
+                        <p className="text-lg font-extrabold text-emerald-600">{totalVisitas}</p>
+                        <p className="text-[9px] text-slate-500 uppercase font-semibold">Visitas</p>
+                      </div>
+                    </div>
+                    {/* Detalhe PF / PJ / % PJ */}
+                    <div className="grid grid-cols-3 gap-1 border-t border-white/60 pt-2">
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-slate-700">{totalCPFs}</p>
+                        <p className="text-[9px] text-slate-400 uppercase">PF</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-blue-600">{totalCNPJs}</p>
+                        <p className="text-[9px] text-slate-400 uppercase">PJ</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-indigo-600">{percPJ}%</p>
+                        <p className="text-[9px] text-slate-400 uppercase">% PJ</p>
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </>
@@ -434,9 +510,9 @@ const ConsultorCredenciamento: React.FC = () => {
                             </td>
                         </tr>
                     ) : (
-                        filteredConsultores.map(c => (
-                            <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 font-semibold text-slate-900 sticky left-0 bg-white hover:bg-slate-50 z-10 border-r shadow-[2px_0_5px_rgba(0,0,0,0.02)]">{c.nome}</td>
+                        filteredConsultores.map((c, rowIndex) => (
+                            <tr key={c.id} className={`border-t border-slate-100 hover:bg-blue-50/30 transition-colors ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>
+                                <td className={`px-6 py-4 font-semibold text-slate-900 sticky left-0 z-10 border-r shadow-[2px_0_5px_rgba(0,0,0,0.04)] ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}`}>{c.nome}</td>
                                 {weeks[semana - 1]?.days.map((date, i) => {
                                     const day = date.getDate();
                                     const cellData = dailyData[c.id]?.[day] || { cpf: 0, cnpj: 0, visitas: 0 };
