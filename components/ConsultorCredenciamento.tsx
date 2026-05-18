@@ -368,8 +368,9 @@ const ConsultorCredenciamento: React.FC = () => {
                       const totalVisitas = validDays.reduce((sum, day) => sum + (consultantDaily[day]?.visitas || 0), 0);
                       const totalCred = totalCPFs + totalCNPJs;
                       const percPJ = totalCred > 0 ? ((totalCNPJs / totalCred) * 100).toFixed(1) : '0';
-                     const status = totalCred === 0 ? '0' : totalCred === 1 ? '1' : totalCred === 2 ? '2' : '>=3';
-                     const color = status === '0' ? 'bg-red-500' : status === '1' ? 'bg-emerald-100' : status === '2' ? 'bg-emerald-500' : 'bg-emerald-900';
+                     const color = kpiPeriod === 'mensal'
+                       ? (totalCred >= 9 ? 'bg-emerald-900' : totalCred >= 5 ? 'bg-yellow-400' : 'bg-red-500')
+                       : (totalCred === 0 ? 'bg-red-500' : totalCred === 1 ? 'bg-yellow-400' : totalCred === 2 ? 'bg-emerald-400' : 'bg-emerald-900');
                      return (
                          <div key={c.id} className="border p-4 rounded-lg bg-white hover:border-blue-200 transition-colors">
                              <div className="flex items-center gap-3 mb-2">
@@ -410,8 +411,8 @@ const ConsultorCredenciamento: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse">
-                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b">
+            <table className="w-full text-sm text-left border-collapse" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b sticky top-0 z-20">
                     <tr>
                         <th className="px-6 py-4 sticky left-0 bg-slate-50 z-10 border-r min-w-[200px]">Consultor</th>
                         {weeks[semana - 1]?.days.map((date, i) => (
