@@ -1,4 +1,5 @@
 import React, { useState, useContext, useMemo, useEffect } from 'react';
+import { supabase } from '../supabase';
 import stringSimilarity from 'string-similarity';
 import { AppContext } from '../App';
 import Modal from './ui/Modal';
@@ -68,6 +69,7 @@ const Cadastros: React.FC = () => {
     const [editData, setEditData] = useState({ supervisor: '', consultor: '', regiao: '' as Regiao | '' });
     const [batchConsultorSuggestion, setBatchConsultorSuggestion] = useState<string | null>(null);
     const [editConsultorSuggestion, setEditConsultorSuggestion] = useState<string | null>(null);
+    const [consultoresDaSupervisao, setConsultoresDaSupervisao] = useState<string[]>([]);
 
     const checkSimilarity = (input: string, setSuggestion: (s: string | null) => void) => {
         const suggestion = getSimilaritySuggestion(input, listaConsultores);
@@ -89,6 +91,19 @@ const Cadastros: React.FC = () => {
     const isAdmin = currentUser?.perfil === 'Administrador';
     const isEstoquista = currentUser?.perfil === 'Estoquista';
     const hasFixedRegiao = !!currentUser?.regiao;
+
+    // Busca consultores da supervisão do supervisor logado para uso no modal de edição
+    useEffect(() => {
+        if (!isSupervisor || !currentUser?.supervisorUuid) return;
+        supabase
+            .from('consultores')
+            .select('nome')
+            .eq('supervisor_id', currentUser.supervisorUuid)
+            .eq('status', 'ativo')
+            .then(({ data }) => {
+                if (data) setConsultoresDaSupervisao(data.map((c: any) => c.nome.toUpperCase()).sort());
+            });
+    }, [isSupervisor, currentUser]);
 
     const listaConsultores = useMemo(() => {
         const nomes = maquinas
@@ -479,7 +494,7 @@ const Cadastros: React.FC = () => {
                                         <SortIndicator field="responsavel" />
                                     </div>
                                 </th>
-                                {!isSupervisor && <th className="p-5"></th>}
+                                <th className="p-5"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
@@ -507,7 +522,7 @@ const Cadastros: React.FC = () => {
                                             <p className="text-[9px] font-black text-slate-500 uppercase">{SUPERVISORES.find(s => s.id === m.supervisor_id)?.nome || '-'}</p>
                                         </td>
                                         <td className="p-5">
-                                            {!isSupervisor && <button onClick={e => openEditModal(e, m)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"><EditIcon className="w-4 h-4" /></button>}
+                                            <button onClick={e => openEditModal(e, m)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all"><EditIcon className="w-4 h-4" /></button>
                                         </td>
                                     </tr>
                                 );
@@ -620,11 +635,19 @@ const Cadastros: React.FC = () => {
                         <option value="">OPERAÇÃO *</option>
                         {SUPERVISORES.map(s => <option key={s.id} value={String(s.id)}>{s.nome}</option>)}
                     </select>
-                    <input type="text" list="edit-consultor-list" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 uppercase" value={editData.consultor} onChange={e => {
-                        const val = e.target.value.toUpperCase();
-                        setEditData({...editData, consultor: val});
-                        checkSimilarity(val, setEditConsultorSuggestion);
-                    }} />
+                    <input
+                        type="text"
+                        list="edit-consultor-list"
+                        placeholder="CONSULTOR"
+                        className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 uppercase"
+                        value={editData.consultor}
+                        onChange={e => {
+                            const val = e.target.value.toUpperCase();
+                            setEditData({...editData, consultor: val});
+                            // Supervisores têm lista própria filtrada; admin usa lista geral
+                            checkSimilarity(val, setEditConsultorSuggestion);
+                        }}
+                    />
                     {editConsultorSuggestion && (
                         <div className="text-[10px] text-amber-700 bg-amber-50 p-2 rounded-lg cursor-pointer" onClick={() => {
                             setEditData({...editData, consultor: editConsultorSuggestion});
@@ -633,7 +656,10 @@ const Cadastros: React.FC = () => {
                             Encontramos nome parecido: {editConsultorSuggestion}. Clicar aqui para usar.
                         </div>
                     )}
-                    <datalist id="edit-consultor-list">{listaConsultores.map(nome => <option key={nome} value={nome} />)}</datalist>
+                    {/* Supervisor vê apenas consultores da sua equipe; demais perfis veem lista geral */}
+                    <datalist id="edit-consultor-list">
+                        {(isSupervisor ? consultoresDaSupervisao : listaConsultores).map(nome => <option key={nome} value={nome} />)}
+                    </datalist>
                     <button onClick={handleSaveEdit} className="w-full bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs shadow-xl">Salvar</button>
                     <button onClick={handleMakeAvailable} className="w-full bg-slate-900 text-white py-2 rounded-xl font-black uppercase text-[10px]">Tornar Disponível</button>
                  </div>
