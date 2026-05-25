@@ -217,13 +217,17 @@ const ConsultorCredenciamento: React.FC = () => {
 
   const filteredData = useMemo(() => {
     return data.filter(d => {
+      // Filtra apenas registros do mês/ano selecionado
+      const [y, m] = d.data.split('-').map(Number);
+      if (y !== ano || m !== mes) return false;
+
       const matchesSearch = d.consultores?.nome.toLowerCase().includes(searchTerm.toLowerCase());
       if (currentUser?.perfil === 'Administrador' && supervisorFiltro) {
           return matchesSearch && d.consultores?.supervisor_id === supervisorFiltro;
       }
       return matchesSearch;
     });
-  }, [data, searchTerm, supervisorFiltro, currentUser]);
+  }, [data, searchTerm, supervisorFiltro, currentUser, mes, ano]);
 
   const filteredConsultores = useMemo(() => {
       return consultores.filter(c => c.nome.toLowerCase().includes(searchTerm.toLowerCase()))
