@@ -2,7 +2,7 @@
 import React, { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../App';
 import Modal from './ui/Modal';
-import { RefreshCwIcon, FileTextIcon } from './ui/Icons';
+import { RefreshCwIcon, FileTextIcon, EditIcon, TrashIcon } from './ui/Icons';
 import { SUPERVISORES } from '../constants';
 import { Devolucao } from '../types';
 
@@ -10,6 +10,7 @@ const Devolucoes: React.FC = () => {
     const context = useContext(AppContext);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedDevolucao, setSelectedDevolucao] = useState<Devolucao | null>(null);
     
     const [filterSerial, setFilterSerial] = useState('');
@@ -38,8 +39,10 @@ const Devolucoes: React.FC = () => {
     });
 
     if (!context) return null;
-    const { devolucoes, registrarDevolucao, atualizarEnvioDevolucao, currentUser } = context;
+    const { devolucoes, registrarDevolucao, atualizarEnvioDevolucao, editarDevolucao, excluirDevolucao, currentUser } = context;
     const isSupervisor = currentUser?.perfil === 'Supervisor';
+    const isEstoquista = currentUser?.perfil === 'Estoquista';
+    const canEdit = currentUser?.perfil === 'Administrador' || isEstoquista;
     const hasFixedRegiao = !!currentUser?.regiao;
 
     const listaConsultores = useMemo(() => {
@@ -151,6 +154,40 @@ const Devolucoes: React.FC = () => {
         setSelectedDevolucao(null);
     };
 
+    const openEditModal = (dev: Devolucao) => {
+        setSelectedDevolucao(dev);
+        setFormData({
+            serial: dev.serial,
+            supervisor: dev.supervisor_id?.toString() || '',
+            consultor: dev.consultor_nome || '',
+            dataEntrega: dev.data_entrega,
+            observacaoInicial: dev.observacao_inicial || ''
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleEditSubmit = () => {
+        if (!selectedDevolucao) return;
+        if (!formData.serial || !formData.supervisor || !formData.dataEntrega) {
+            alert('Preencha os campos obrigatórios: Serial, Operação e Data da Entrega.');
+            return;
+        }
+        editarDevolucao(selectedDevolucao.id, {
+            serial: formData.serial.toUpperCase(),
+            supervisor_id: parseInt(formData.supervisor),
+            consultor_nome: formData.consultor.toUpperCase(),
+            data_entrega: formData.dataEntrega,
+            observacao_inicial: formData.observacaoInicial
+        });
+        setIsEditModalOpen(false);
+        setSelectedDevolucao(null);
+    };
+
+    const handleDelete = (dev: Devolucao) => {
+        if (!window.confirm(`Confirma exclusão da devolução do serial ${dev.serial}? Esta ação não pode ser desfeita.`)) return;
+        excluirDevolucao(dev.id);
+    };
+
     const handleExportExcel = () => {
         if (filteredItems.length === 0) return alert("Não há dados para exportar.");
         const dataToExport = filteredItems.map(d => {
@@ -181,9 +218,9 @@ const Devolucoes: React.FC = () => {
                 </div>
                 <div className="flex gap-4">
                     <button onClick={handleExportExcel} className="bg-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-emerald-800 transition flex items-center gap-2 font-black uppercase text-xs">Exportar Excel</button>
-                    {!isSupervisor && (
-                        <button onClick={() => setIsCreateModalOpen(true)} className="bg-red-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-red-800 transition flex items-center gap-2 font-black uppercase text-xs"><RefreshCwIcon className="w-5 h-5" /> Nova Devolução</button>
-                    )}
+                {!isSupervisor && (
+                    <button onClick={() => setIsCreateModalOpen(true)} className="bg-red-700 text-white px-6 py-3 rounded-xl shadow-lg hover:bg-red-800 transition flex items-center gap-2 font-black uppercase text-xs"><RefreshCwIcon className="w-5 h-5" /> Nova Devolução</button>
+                )}
                 </div>
             </div>
 
@@ -249,9 +286,17 @@ const Devolucoes: React.FC = () => {
                                     </td>
                                     <td className="p-5 font-black text-xs text-blue-800 uppercase">{d.codigo_rastreio || '-'}</td>
                                     <td className="p-5">
-                                        {!isSupervisor && (
-                                            <button onClick={() => openShippingModal(d)} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase hover:bg-black transition whitespace-nowrap">Devolução</button>
-                                        )}
+                                        <div className="flex items-center gap-1">
+                                            {!isSupervisor && (
+                                                <button onClick={() => openShippingModal(d)} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-black text-[9px] uppercase hover:bg-black transition whitespace-nowrap">Devolução</button>
+                                            )}
+                                            {canEdit && (
+                                                <>
+                                                    <button onClick={() => openEditModal(d)} className="p-2 text-slate-400 hover:text-blue-700 hover:bg-blue-50 rounded-full transition-all" title="Editar"><EditIcon className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDelete(d)} className="p-2 text-slate-400 hover:text-red-700 hover:bg-red-50 rounded-full transition-all" title="Excluir"><TrashIcon className="w-4 h-4" /></button>
+                                                </>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -323,6 +368,21 @@ const Devolucoes: React.FC = () => {
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Código de Rastreio *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="EX: AA123456789BR" value={shippingData.codigoRastreio} onChange={e => setShippingData({...shippingData, codigoRastreio: e.target.value.toUpperCase()})} /></div>
                     <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações do Envio</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES ADICIONAIS..." value={shippingData.observacaoEnvio} onChange={e => setShippingData({...shippingData, observacaoEnvio: e.target.value})} /></div>
                     <button onClick={handleShippingSubmit} className="w-full bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl mt-2 hover:bg-blue-800 transition">Confirmar Envio</button>
+                </div>
+            </Modal>
+
+            <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setSelectedDevolucao(null); }} title="Editar Devolução">
+                <div className="space-y-4">
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Serial da Máquina *</label><input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="SERIAL" value={formData.serial} onChange={e => setFormData({...formData, serial: e.target.value.toUpperCase()})} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Operação *</label><select disabled={isSupervisor} className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 disabled:opacity-50" value={formData.supervisor} onChange={e => setFormData({...formData, supervisor: e.target.value})}><option value="">SELECIONE...</option>{SUPERVISORES.filter(s => { if (!hasFixedRegiao) return true; if (currentUser.regiao === 'SERGIPE') return s.nome.startsWith('AJU') || s.nome.startsWith('SE'); if (currentUser.regiao === 'ALAGOAS') return s.nome.startsWith('AL') || s.nome.startsWith('MAC'); return true; }).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Consultor</label>
+                        <input type="text" list="edit-devolucao-consultor-list" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 uppercase" placeholder="NOME DO CONSULTOR" value={formData.consultor} onChange={e => setFormData({...formData, consultor: e.target.value.toUpperCase()})} />
+                        <datalist id="edit-devolucao-consultor-list">{listaConsultores.map(nome => <option key={nome} value={nome} />)}</datalist>
+                    </div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Data da Entrega *</label><input type="date" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950" value={formData.dataEntrega} onChange={e => setFormData({...formData, dataEntrega: e.target.value})} style={{ colorScheme: 'light' }} /></div>
+                    <div><label className="block text-[10px] font-black text-slate-950 uppercase mb-2">Observações</label><textarea className="w-full p-4 border-2 border-slate-200 rounded-xl font-black bg-slate-50 text-slate-950 h-24 uppercase" placeholder="DETALHES DO DEFEITO..." value={formData.observacaoInicial} onChange={e => setFormData({...formData, observacaoInicial: e.target.value})} /></div>
+                    <button onClick={handleEditSubmit} className="w-full bg-blue-700 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-xl mt-2 hover:bg-blue-800 transition">Salvar Alterações</button>
                 </div>
             </Modal>
         </div>

@@ -26,6 +26,8 @@ interface AppContextType {
   alterarRegiaoEmLote: (maquinaIds: string[], novaRegiao: Regiao) => Promise<void>;
   registrarDevolucao: (dados: Omit<Devolucao, 'id' | 'criado_em' | 'criado_por'>) => Promise<void>;
   atualizarEnvioDevolucao: (id: string, dados: { data_envio_correios: string, codigo_rastreio: string, observacao_envio: string }) => Promise<void>;
+  editarDevolucao: (id: string, dados: { serial: string, supervisor_id: number, consultor_nome: string, data_entrega: string, observacao_inicial: string }) => Promise<void>;
+  excluirDevolucao: (id: string) => Promise<void>;
   login: (user: UserProfile) => void;
   logout: () => void;
 }
@@ -367,9 +369,21 @@ const App: React.FC = () => {
     triggerRefresh();
   };
 
+  const editarDevolucao = async (id: string, dados: { serial: string, supervisor_id: number, consultor_nome: string, data_entrega: string, observacao_inicial: string }) => {
+    setIsSyncing(true);
+    await supabase.from('devolucoes').update(dados).eq('id', id);
+    triggerRefresh();
+  };
+
+  const excluirDevolucao = async (id: string) => {
+    setIsSyncing(true);
+    await supabase.from('devolucoes').delete().eq('id', id);
+    triggerRefresh();
+  };
+
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing, triggerRefresh,
-    executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, login: handleLogin, logout: handleLogout,
+    executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, editarDevolucao, excluirDevolucao, login: handleLogin, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
   return (
