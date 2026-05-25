@@ -238,30 +238,38 @@ const ConsultorCredenciamento: React.FC = () => {
       return [...SUPERVISORES].sort((a, b) => a.nome.localeCompare(b.nome));
   }, []);
 
+  // monthStats e weekStats usam a mesma fonte que os cards KPI (filteredConsultores + dailyData)
+  // para garantir que os totais dos resumos batam exatamente com a soma dos cards.
   const monthStats = useMemo(() => {
-    const s = filteredData.reduce((acc, curr) => ({
-      cpf: acc.cpf + (curr.cpf_count || 0),
-      cnpj: acc.cnpj + (curr.cnpj_count || 0),
-      visitas: acc.visitas + (curr.visitas || 0)
-    }), { cpf: 0, cnpj: 0, visitas: 0 });
-    const totalCred = s.cpf + s.cnpj;
-    const percPJ = totalCred > 0 ? ((s.cnpj / totalCred) * 100).toFixed(1) : '0';
-    return { totalCred, percPJ, visitas: s.visitas };
-  }, [filteredData]);
+    let cpf = 0, cnpj = 0, visitas = 0;
+    filteredConsultores.forEach(c => {
+      const consultantDaily = dailyData[c.id] || {};
+      Object.values(consultantDaily).forEach((dayData: any) => {
+        cpf += dayData.cpf || 0;
+        cnpj += dayData.cnpj || 0;
+        visitas += dayData.visitas || 0;
+      });
+    });
+    const totalCred = cpf + cnpj;
+    const percPJ = totalCred > 0 ? ((cnpj / totalCred) * 100).toFixed(1) : '0';
+    return { totalCred, percPJ, visitas };
+  }, [filteredConsultores, dailyData]);
 
   const weekStats = useMemo(() => {
-      const selectedWeekDates = weeks[semana - 1]?.days || [];
-      const dateStrings = selectedWeekDates.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
-      const filteredWeekData = filteredData.filter(d => dateStrings.includes(d.data));
-      const s = filteredWeekData.reduce((acc, curr) => ({
-          cpf: acc.cpf + (curr.cpf_count || 0),
-          cnpj: acc.cnpj + (curr.cnpj_count || 0),
-          visitas: acc.visitas + (curr.visitas || 0)
-      }), { cpf: 0, cnpj: 0, visitas: 0 });
-      const totalCred = s.cpf + s.cnpj;
-      const percPJ = totalCred > 0 ? ((s.cnpj / totalCred) * 100).toFixed(1) : '0';
-      return { totalCred, percPJ, visitas: s.visitas };
-  }, [filteredData, weeks, semana]);
+    const selectedWeekDays = weeks[semana - 1]?.days.map(d => d.getDate()) || [];
+    let cpf = 0, cnpj = 0, visitas = 0;
+    filteredConsultores.forEach(c => {
+      const consultantDaily = dailyData[c.id] || {};
+      selectedWeekDays.forEach(day => {
+        cpf += consultantDaily[day]?.cpf || 0;
+        cnpj += consultantDaily[day]?.cnpj || 0;
+        visitas += consultantDaily[day]?.visitas || 0;
+      });
+    });
+    const totalCred = cpf + cnpj;
+    const percPJ = totalCred > 0 ? ((cnpj / totalCred) * 100).toFixed(1) : '0';
+    return { totalCred, percPJ, visitas };
+  }, [filteredConsultores, dailyData, weeks, semana]);
 
   const handleCreate = async () => {
     const { error } = await supabase.from('credenciamentos').insert({
