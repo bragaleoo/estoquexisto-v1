@@ -112,13 +112,14 @@ const ConsultorCredenciamento: React.FC = () => {
                         String(date.getMonth() + 1).padStart(2, '0') + '-' + 
                         String(date.getDate()).padStart(2, '0');
 
-        // Busca ID para evitar conflito de RLS
-        const { data: existing } = await supabase
+        // Busca ID para evitar conflito de RLS (limit 1 evita erro com duplicatas)
+        const { data: existingList } = await supabase
             .from('credenciamentos')
             .select('id')
             .eq('consultor_id', consultorId)
             .eq('data', dateStr)
-            .maybeSingle();
+            .limit(1);
+        const existing = existingList?.[0] ?? null;
 
         const payload = {
             consultor_id: consultorId,
@@ -182,7 +183,7 @@ const ConsultorCredenciamento: React.FC = () => {
   useEffect(() => {
     fetchData();
     fetchConsultores();
-  }, [semana, supervisorFiltro, mes, ano]);
+  }, [supervisorFiltro, mes, ano]); // 'semana' removido: não afeta a query, só a exibição de colunas
 
   const fetchConsultores = async () => {
     let query = supabase.from('consultores').select('id, nome, supervisor_id').eq('status', 'ativo');
