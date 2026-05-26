@@ -199,9 +199,15 @@ const ConsultorCredenciamento: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const startDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
+      const lastDay = new Date(ano, mes, 0).getDate();
+      const endDate = `${ano}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
       let query = supabase
         .from('credenciamentos')
-        .select(`id, consultor_id, data, cpf_count, cnpj_count, visitas, consultores (nome, supervisor_id)`);
+        .select(`id, consultor_id, data, cpf_count, cnpj_count, visitas, consultores (nome, supervisor_id)`)
+        .gte('data', startDate)
+        .lte('data', endDate);
 
       if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
           query = query.eq('consultores.supervisor_id', currentUser.supervisorUuid);
