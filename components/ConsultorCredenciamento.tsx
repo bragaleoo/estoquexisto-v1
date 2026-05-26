@@ -203,18 +203,36 @@ const ConsultorCredenciamento: React.FC = () => {
       const lastDay = new Date(ano, mes, 0).getDate();
       const endDate = `${ano}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-      let query = supabase
-        .from('credenciamentos')
-        .select(`id, consultor_id, data, cpf_count, cnpj_count, visitas, consultores (nome, supervisor_id)`)
-        .gte('data', startDate)
-        .lte('data', endDate);
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
 
-      if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
-          query = query.eq('consultores.supervisor_id', currentUser.supervisorUuid);
+      while (hasMore) {
+        let query = supabase
+          .from('credenciamentos')
+          .select(`id, consultor_id, data, cpf_count, cnpj_count, visitas, consultores (nome, supervisor_id)`)
+          .gte('data', startDate)
+          .lte('data', endDate)
+          .range(from, from + step - 1);
+
+        if (currentUser?.perfil !== 'Administrador' && currentUser?.supervisorUuid) {
+            query = query.eq('consultores.supervisor_id', currentUser.supervisorUuid);
+        }
+
+        const { data: result, error } = await query;
+        if (error) throw error;
+
+        if (result && result.length > 0) {
+          allData = [...allData, ...result];
+          from += step;
+          if (result.length < step) hasMore = false;
+        } else {
+          hasMore = false;
+        }
       }
-      const { data: result, error } = await query;
-      if (error) throw error;
-      setData(result as any[]);
+
+      setData(allData);
     } catch (err) {
       console.error(err);
     } finally {
