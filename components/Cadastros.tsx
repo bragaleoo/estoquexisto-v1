@@ -256,7 +256,6 @@ const Cadastros: React.FC = () => {
         const worksheet = (window as any).XLSX.utils.json_to_sheet(dataToExport);
         const workbook = (window as any).XLSX.utils.book_new();
         (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, "Estoque_Xisto");
-        (window as any).XLSX.utils.book_append_sheet(workbook, worksheet, "Estoque_Xisto");
         (window as any).XLSX.writeFile(workbook, `Estoque_Xisto_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
