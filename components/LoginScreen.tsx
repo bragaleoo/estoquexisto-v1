@@ -42,6 +42,8 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 04', supervisorId: 4, supervisorUuid: '0833ac65-cb60-4f53-a73c-e16e88e8f7ca' });
         } else if (u === 'se05' && p === '987654@') {
             onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 05', supervisorId: 5, supervisorUuid: '3a5edc2d-927c-4087-95c4-010ffa312980' });
+        } else if ((u === 'se06' || u === 'aju06') && p === '369258@') {
+            onLogin({ perfil: 'Supervisor', nome: 'Supervisor SE 06', supervisorId: 9, supervisorUuid: '59ebde36-a892-4630-9879-a30db18b8097' });
         } 
         // EQUIPES ALAGOAS (AL)
         else if (u === 'mac01' && p === '654987@') {
