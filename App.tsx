@@ -21,7 +21,8 @@ interface AppContextType {
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string, dataAtribuicao?: string) => Promise<void>;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => Promise<void>;
   baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => Promise<void>;
-  executarBaixaMercadoPago: (itens: ItemBaixaMP[], cadastrarNaoEncontradas?: boolean) => Promise<void>;
+  executarBaixaMercadoPago: (itens: ItemBaixaMP[], cadastrarNaoEncontradas?: boolean, arquivoNome?: string) => Promise<void>;
+  cancelarLoteBaixaMP: (importId: string) => Promise<void>;
   desfazerBaixa: (maquinaId: string, justificativa: string) => Promise<void>;
   disponibilizarEmLote: (maquinaIds: string[]) => Promise<void>;
   alterarRegiaoEmLote: (maquinaIds: string[], novaRegiao: Regiao) => Promise<void>;
@@ -315,7 +316,7 @@ const App: React.FC = () => {
     triggerRefresh();
   };
 
-  const executarBaixaMercadoPago = async (itens: ItemBaixaMP[], cadastrarNaoEncontradas: boolean = false) => {
+  const executarBaixaMercadoPago = async (itens: ItemBaixaMP[], cadastrarNaoEncontradas: boolean = false, arquivoNome?: string) => {
     setIsSyncing(true);
     try {
       const timestamp = new Date().toISOString();
@@ -327,28 +328,27 @@ const App: React.FC = () => {
 
       if (itensParaProcessar.length === 0) return;
 
+      const importId = crypto.randomUUID();
       const batchSerials = itensParaProcessar.map(i => i.serialNormalizado);
       const { data: dbMatches } = await supabase.from('maquinas').select('id, serial, pedido_id, regiao, atribuido_em').in('serial', batchSerials);
       const dbMap = new Map<string, any>();
       dbMatches?.forEach(m => dbMap.set(m.serial, m));
 
       let loteMpId: string | null = null;
-      if (cadastrarNaoEncontradas) {
-        const loteCode = 'LOTE_MERCADOPAGO_AUTO';
-        let pedidoMp = pedidos.find(p => p.codigo_pedido === loteCode);
-        if (!pedidoMp) {
-          loteMpId = crypto.randomUUID();
-          await supabase.from('pedidos').insert({
-            id: loteMpId,
-            codigo_pedido: loteCode,
-            qtd_importada: 0,
-            status_importacao: 'PARCIAL',
-            criado_em: timestamp,
-            criado_por: currentUserNome
-          });
-        } else {
-          loteMpId = pedidoMp.id;
-        }
+      const loteCode = 'LOTE_MERCADOPAGO_AUTO';
+      let pedidoMp = pedidos.find(p => p.codigo_pedido === loteCode);
+      if (!pedidoMp) {
+        loteMpId = crypto.randomUUID();
+        await supabase.from('pedidos').insert({
+          id: loteMpId,
+          codigo_pedido: loteCode,
+          qtd_importada: 0,
+          status_importacao: 'PARCIAL',
+          criado_em: timestamp,
+          criado_por: currentUserNome
+        });
+      } else {
+        loteMpId = pedidoMp.id;
       }
 
       const maquinasParaUpsert: any[] = [];
@@ -358,7 +358,7 @@ const App: React.FC = () => {
         const existing = (item.maquinaIdExistente ? maquinas.find(m => m.id === item.maquinaIdExistente) : null) || dbMap.get(item.serialNormalizado);
         const mId = existing?.id || item.maquinaIdExistente || crypto.randomUUID();
         const serialFinal = existing?.serial || item.serialNormalizado;
-        const pedidoId = existing?.pedido_id || loteMpId || (pedidos[0]?.id || crypto.randomUUID());
+        const pedidoId = existing?.pedido_id || loteMpId;
         let dataBaixaIso = timestamp;
         if (item.dataBaixa) {
           try {
@@ -390,6 +390,7 @@ const App: React.FC = () => {
           criado_em: timestamp,
           criado_por: currentUserNome,
           payload: {
+            import_id: importId,
             after: {
               status: 'BAIXADA',
               motivo: item.motivoBaixa || 'VENDA',
@@ -402,6 +403,19 @@ const App: React.FC = () => {
           }
         });
       }
+
+      await supabase.from('importacoes').insert({
+        id: importId,
+        pedido_id: loteMpId,
+        arquivo_nome: arquivoNome || 'Planilha Mercado Pago (Baixa)',
+        importado_em: timestamp,
+        importado_por: currentUserNome,
+        total_linhas_lidas: itens.length,
+        seriais_validos: itensParaProcessar.length,
+        invalidos: itens.filter(i => i.statusProcessamento === 'INVALIDA').length,
+        maquinas_inseridas: itensParaProcessar.length,
+        status: 'PROCESSADA'
+      });
 
       const chunkSize = 200;
       if (maquinasParaUpsert.length > 0) {
@@ -416,6 +430,64 @@ const App: React.FC = () => {
       triggerRefresh();
     } catch (err) {
       console.error("Erro na baixa automatizada Mercado Pago:", err);
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const cancelarLoteBaixaMP = async (importId: string) => {
+    setIsSyncing(true);
+    try {
+      const timestamp = new Date().toISOString();
+      const currentUserNome = currentUser?.nome || 'Sistema';
+
+      const { data: eventosLote } = await supabase.from('eventos_maquina').select('maquina_id, payload').eq('tipo_evento', 'BAIXA');
+      const maquinaIdsDoLote: string[] = [];
+
+      eventosLote?.forEach(ev => {
+        if (ev.payload?.import_id === importId) {
+          maquinaIdsDoLote.push(ev.maquina_id);
+        }
+      });
+
+      if (maquinaIdsDoLote.length > 0) {
+        const { data: maquinasAfetadas } = await supabase.from('maquinas').select('id, supervisor_id').in('id', maquinaIdsDoLote);
+
+        if (maquinasAfetadas && maquinasAfetadas.length > 0) {
+          for (const m of maquinasAfetadas) {
+            const novoStatus: StatusEstoque = m.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL';
+            await supabase.from('maquinas').update({
+              status_estoque: novoStatus,
+              baixado_em: null,
+              baixado_por: null,
+              motivo_baixa: null,
+              observacao_baixa: null
+            }).eq('id', m.id);
+          }
+
+          const novosEventos = maquinasAfetadas.map(m => ({
+            id: crypto.randomUUID(),
+            maquina_id: m.id,
+            tipo_evento: 'DESFAZER_BAIXA',
+            criado_em: timestamp,
+            criado_por: currentUserNome,
+            justificativa: `Cancelamento de lote de baixa automatizada MP #${importId.slice(0, 8)}`,
+            payload: { after: { status: m.supervisor_id ? 'ATRIBUIDA' : 'DISPONIVEL' } }
+          }));
+
+          const chunkSize = 200;
+          for (let i = 0; i < novosEventos.length; i += chunkSize) {
+            await supabase.from('eventos_maquina').insert(novosEventos.slice(i, i + chunkSize));
+          }
+        }
+      }
+
+      await supabase.from('importacoes').update({ status: 'CANCELADA' }).eq('id', importId);
+
+      triggerRefresh();
+    } catch (err) {
+      console.error('Erro ao cancelar lote de baixa MP:', err);
       throw err;
     } finally {
       setIsSyncing(false);
@@ -491,7 +563,7 @@ const App: React.FC = () => {
 
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing, triggerRefresh,
-    executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, executarBaixaMercadoPago, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, editarDevolucao, excluirDevolucao, login: handleLogin, logout: handleLogout,
+    executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, executarBaixaMercadoPago, cancelarLoteBaixaMP, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, editarDevolucao, excluirDevolucao, login: handleLogin, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
   return (

@@ -72,7 +72,7 @@ export interface Importacao {
   seriais_validos: number;
   invalidos: number;
   maquinas_inseridas: number;
-  status: 'PROCESSADA' | 'PROCESSADA_COM_ERROS';
+  status: 'PROCESSADA' | 'PROCESSADA_COM_ERROS' | 'CANCELADA';
 }
 
 export interface ImportacaoItem {
