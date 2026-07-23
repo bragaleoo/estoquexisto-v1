@@ -111,8 +111,9 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
           return;
         }
 
-        const maquinasMap = new Map<string, typeof maquinas[0]>();
-        maquinas.forEach(m => maquinasMap.set(m.serial, m));
+        // Mapear máquinas do banco por serial exato e também por versão sem prefixo de modelo (ex: N950NCD... -> NCD...)
+        const maquinasMapExact = new Map<string, typeof maquinas[0]>();
+        maquinas.forEach(m => maquinasMapExact.set(m.serial, m));
 
         const parsedItems: ItemBaixaMP[] = [];
 
@@ -139,12 +140,33 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
           let statusProcessamento: ItemBaixaMP['statusProcessamento'] = 'PRONTA';
           let erroMotivo: string | undefined;
           let maquinaIdExistente: string | undefined;
+          let matchedSerial = serialNorm;
 
           if (!validateSerial(serialNorm)) {
             statusProcessamento = 'INVALIDA';
             erroMotivo = 'Serial inválido ou incorreto';
           } else {
-            const existingMachine = maquinasMap.get(serialNorm);
+            // Busca 1: Exata
+            let existingMachine = maquinasMapExact.get(serialNorm);
+
+            // Busca 2: Remoção de prefixo de modelo (ex: N950, N920, PAX, SMART, MP)
+            if (!existingMachine) {
+              const stripped = serialNorm.replace(/^(N950|N920|PAX|SMART|MP)/i, '');
+              if (stripped && stripped.length >= 6) {
+                existingMachine = maquinasMapExact.get(stripped);
+                if (existingMachine) matchedSerial = stripped;
+              }
+            }
+
+            // Busca 3: Sufixo/Prefixo flexível
+            if (!existingMachine) {
+              const found = maquinas.find(m => serialNorm.endsWith(m.serial) || m.serial.endsWith(serialNorm));
+              if (found) {
+                existingMachine = found;
+                matchedSerial = found.serial;
+              }
+            }
+
             if (!existingMachine) {
               statusProcessamento = 'NAO_ENCONTRADA';
               erroMotivo = 'Não encontrada no estoque atual';
@@ -161,7 +183,7 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
           parsedItems.push({
             linha: idx + 2,
             serialOriginal: String(rawSerial).trim(),
-            serialNormalizado: serialNorm,
+            serialNormalizado: matchedSerial,
             consultorNome,
             supervisorId,
             dataBaixa,
@@ -206,6 +228,7 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
     }
   };
 
+  // Métricas
   const totalLidos = items.length;
   const totalProntas = items.filter(i => i.statusProcessamento === 'PRONTA').length;
   const totalJaBaixadas = items.filter(i => i.statusProcessamento === 'JA_BAIXADA').length;
@@ -230,32 +253,34 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center px-4 mb-4">
-        <div className={`flex items-center space-x-2 ${step === 1 ? 'text-indigo-600 font-bold' : 'text-gray-400'}`}>
-          <span className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-semibold text-sm">1</span>
-          <span>Upload da Planilha</span>
+      {/* Header com passos */}
+      <div className="flex justify-between items-center px-4 mb-2">
+        <div className={`flex items-center space-x-2 ${step === 1 ? 'text-indigo-600 font-extrabold' : 'text-slate-400 font-semibold'}`}>
+          <span className="w-8 h-8 rounded-full border-2 border-indigo-600 flex items-center justify-center text-sm font-bold bg-indigo-50">1</span>
+          <span className="text-sm">Upload da Planilha</span>
         </div>
-        <div className="w-12 h-0.5 bg-gray-200" />
-        <div className={`flex items-center space-x-2 ${step === 2 ? 'text-indigo-600 font-bold' : 'text-gray-400'}`}>
-          <span className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-semibold text-sm">2</span>
-          <span>Conferência de Baixas</span>
+        <div className="flex-1 h-0.5 bg-slate-200 mx-4" />
+        <div className={`flex items-center space-x-2 ${step === 2 ? 'text-indigo-600 font-extrabold' : 'text-slate-400 font-semibold'}`}>
+          <span className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${step === 2 ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-300'}`}>2</span>
+          <span className="text-sm">Conferência de Baixas</span>
         </div>
-        <div className="w-12 h-0.5 bg-gray-200" />
-        <div className={`flex items-center space-x-2 ${step === 3 ? 'text-emerald-600 font-bold' : 'text-gray-400'}`}>
-          <span className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-semibold text-sm">3</span>
-          <span>Concluído</span>
+        <div className="flex-1 h-0.5 bg-slate-200 mx-4" />
+        <div className={`flex items-center space-x-2 ${step === 3 ? 'text-emerald-600 font-extrabold' : 'text-slate-400 font-semibold'}`}>
+          <span className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold ${step === 3 ? 'border-emerald-600 bg-emerald-50 text-emerald-600' : 'border-slate-300'}`}>3</span>
+          <span className="text-sm">Concluído</span>
         </div>
       </div>
 
+      {/* Passo 1: Upload */}
       {step === 1 && (
-        <div className="p-8 border-2 border-dashed border-indigo-200 bg-indigo-50/40 rounded-2xl text-center space-y-4">
-          <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto text-2xl">
+        <div className="p-10 border-2 border-dashed border-indigo-200 bg-indigo-50/30 rounded-2xl text-center space-y-4">
+          <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-sm">
             📊
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-800">Carregar Planilha de Vendas Mercado Pago</h3>
-            <p className="text-sm text-gray-500 max-w-md mx-auto mt-1">
-              Selecione o arquivo Excel exportado do Mercado Pago (ex: <code className="bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded">MP_IC_Hunting...xlsx</code>).
+            <h3 className="text-xl font-bold text-slate-800">Carregar Planilha de Vendas Mercado Pago</h3>
+            <p className="text-sm text-slate-500 max-w-lg mx-auto mt-2 leading-relaxed">
+              Selecione o arquivo Excel exportado do Mercado Pago (ex: <code className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-mono font-semibold">MP_IC_Hunting...xlsx</code>).
             </p>
           </div>
           
@@ -270,69 +295,79 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
             }}
           />
 
-          <label
-            htmlFor="mp-file-input"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium cursor-pointer hover:bg-indigo-700 transition-colors shadow-md shadow-indigo-200"
-          >
-            {isProcessing ? 'Lendo planilha...' : 'Selecionar Arquivo Excel'}
-          </label>
+          <div className="pt-2">
+            <label
+              htmlFor="mp-file-input"
+              className="inline-flex items-center gap-2 px-8 py-3.5 bg-indigo-600 text-white rounded-xl font-bold text-sm cursor-pointer hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+            >
+              {isProcessing ? 'Lendo planilha...' : 'Selecionar Arquivo Excel'}
+            </label>
+          </div>
         </div>
       )}
 
+      {/* Passo 2: Prévia e Conferência */}
       {step === 2 && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Total Lidos</span>
-              <p className="text-2xl font-bold text-slate-800">{totalLidos}</p>
+          {/* Cards de Métricas com largura ajustada para nunca quebrar texto */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl shadow-sm flex flex-col justify-between">
+              <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Total Lidos</span>
+              <p className="text-2xl md:text-3xl font-black text-slate-900 mt-1">{totalLidos}</p>
             </div>
-            <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
-              <span className="text-xs font-semibold text-emerald-600 uppercase">Prontas p/ Baixa</span>
-              <p className="text-2xl font-bold text-emerald-700">{totalProntas}</p>
+            
+            <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl shadow-sm flex flex-col justify-between">
+              <span className="text-[11px] font-black text-emerald-700 uppercase tracking-wider">Prontas p/ Baixa</span>
+              <p className="text-2xl md:text-3xl font-black text-emerald-800 mt-1">{totalProntas}</p>
             </div>
-            <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl">
-              <span className="text-xs font-semibold text-amber-600 uppercase">Já Baixadas</span>
-              <p className="text-2xl font-bold text-amber-700">{totalJaBaixadas}</p>
+            
+            <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl shadow-sm flex flex-col justify-between">
+              <span className="text-[11px] font-black text-amber-700 uppercase tracking-wider">Já Baixadas</span>
+              <p className="text-2xl md:text-3xl font-black text-amber-800 mt-1">{totalJaBaixadas}</p>
             </div>
-            <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl">
-              <span className="text-xs font-semibold text-blue-600 uppercase">Não Cadastradas</span>
-              <p className="text-2xl font-bold text-blue-700">{totalNaoEncontradas}</p>
+            
+            <div className="bg-blue-50 border border-blue-200 p-3.5 rounded-2xl shadow-sm flex flex-col justify-between">
+              <span className="text-[11px] font-black text-blue-700 uppercase tracking-wider">Não Cadastráveis</span>
+              <p className="text-2xl md:text-3xl font-black text-blue-800 mt-1">{totalNaoEncontradas}</p>
             </div>
-            <div className="bg-rose-50 border border-rose-200 p-3 rounded-xl">
-              <span className="text-xs font-semibold text-rose-600 uppercase">Inválidas</span>
-              <p className="text-2xl font-bold text-rose-700">{totalInvalidas}</p>
+            
+            <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-2xl shadow-sm flex flex-col justify-between">
+              <span className="text-[11px] font-black text-rose-700 uppercase tracking-wider">Inválidas</span>
+              <p className="text-2xl md:text-3xl font-black text-rose-800 mt-1">{totalInvalidas}</p>
             </div>
           </div>
 
+          {/* Opção para cadastrar automaticamente não encontradas */}
           {totalNaoEncontradas > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+            <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-sm text-blue-900 shadow-sm">
               <input
                 type="checkbox"
                 id="check-cadastrar"
                 checked={cadastrarNaoEncontradas}
                 onChange={(e) => setCadastrarNaoEncontradas(e.target.checked)}
-                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
               />
-              <label htmlFor="check-cadastrar" className="cursor-pointer font-medium">
-                Cadastrar e dar baixa automaticamente nas {totalNaoEncontradas} máquinas que não constam no estoque atual
+              <label htmlFor="check-cadastrar" className="cursor-pointer font-bold select-none">
+                Cadastrar e dar baixa automaticamente nas {totalNaoEncontradas} máquinas que não constavam no estoque ativo
               </label>
             </div>
           )}
 
-          <div className="flex flex-col md:flex-row gap-3 justify-between items-center">
+          {/* Filtros e Busca */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-between items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
             <input
               type="text"
-              placeholder="Buscar por serial ou consultor..."
+              placeholder="🔍 Buscar por serial ou consultor..."
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
-              className="w-full md:w-72 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full sm:w-80 px-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
             />
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-gray-500">Status:</span>
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <span className="text-xs font-bold text-slate-500 uppercase">Filtrar:</span>
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="TODOS">Todos ({items.length})</option>
                 <option value="PRONTA">Prontas ({totalProntas})</option>
@@ -343,47 +378,48 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
             </div>
           </div>
 
-          <div className="border border-gray-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-100 text-gray-600 uppercase font-semibold sticky top-0">
+          {/* Tabela Ampliada de Previsualização */}
+          <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white max-h-[380px] overflow-y-auto">
+            <table className="w-full text-left text-xs min-w-[800px]">
+              <thead className="bg-slate-100 text-slate-700 uppercase font-black sticky top-0 border-b border-slate-200 z-10">
                 <tr>
-                  <th className="px-3 py-2">Linha</th>
-                  <th className="px-3 py-2">Serial</th>
-                  <th className="px-3 py-2">Consultor</th>
-                  <th className="px-3 py-2">Supervisor (HUB)</th>
-                  <th className="px-3 py-2">Data Venda</th>
-                  <th className="px-3 py-2">Motivo</th>
-                  <th className="px-3 py-2">Status Processamento</th>
+                  <th className="px-4 py-3 w-16">Linha</th>
+                  <th className="px-4 py-3">Serial</th>
+                  <th className="px-4 py-3">Consultor</th>
+                  <th className="px-4 py-3">Supervisor (HUB)</th>
+                  <th className="px-4 py-3">Data Venda</th>
+                  <th className="px-4 py-3">Motivo</th>
+                  <th className="px-4 py-3 text-center">Status Processamento</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {filteredItems.map((item, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 font-mono text-gray-400">{item.linha}</td>
-                    <td className="px-3 py-2 font-mono font-bold text-gray-800">{item.serialNormalizado}</td>
-                    <td className="px-3 py-2 text-gray-700">{item.consultorNome || '-'}</td>
-                    <td className="px-3 py-2 text-gray-700">{getSupervisorNome(item.supervisorId)}</td>
-                    <td className="px-3 py-2 text-gray-700">{item.dataBaixa}</td>
-                    <td className="px-3 py-2 text-gray-700">{item.motivoBaixa}</td>
-                    <td className="px-3 py-2">
+                  <tr key={index} className="hover:bg-indigo-50/40 transition-colors">
+                    <td className="px-4 py-3 font-mono text-slate-400 font-bold">{item.linha}</td>
+                    <td className="px-4 py-3 font-mono font-black text-slate-900 tracking-wider">{item.serialNormalizado}</td>
+                    <td className="px-4 py-3 text-slate-800 font-semibold">{item.consultorNome || '-'}</td>
+                    <td className="px-4 py-3 text-slate-700 font-semibold">{getSupervisorNome(item.supervisorId)}</td>
+                    <td className="px-4 py-3 text-slate-700 whitespace-nowrap">{item.dataBaixa}</td>
+                    <td className="px-4 py-3 text-slate-700 font-semibold">{item.motivoBaixa}</td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {item.statusProcessamento === 'PRONTA' && (
-                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-semibold rounded-full text-[10px]">
-                          Pronta p/ Baixa
+                        <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-[11px] inline-flex items-center gap-1 border border-emerald-300 shadow-sm">
+                          ✓ Pronta p/ Baixa
                         </span>
                       )}
                       {item.statusProcessamento === 'JA_BAIXADA' && (
-                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 font-semibold rounded-full text-[10px]">
-                          Já Baixada
+                        <span className="px-3 py-1 bg-amber-100 text-amber-800 font-bold rounded-full text-[11px] inline-flex items-center gap-1 border border-amber-300 shadow-sm">
+                          ⚠ Já Baixada
                         </span>
                       )}
                       {item.statusProcessamento === 'NAO_ENCONTRADA' && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 font-semibold rounded-full text-[10px]">
-                          Não Cadastrada
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 font-bold rounded-full text-[11px] inline-flex items-center gap-1 border border-blue-300 shadow-sm">
+                          ℹ Não Cadastrada
                         </span>
                       )}
                       {item.statusProcessamento === 'INVALIDA' && (
-                        <span className="px-2 py-0.5 bg-rose-100 text-rose-800 font-semibold rounded-full text-[10px]">
-                          Inválida
+                        <span className="px-3 py-1 bg-rose-100 text-rose-800 font-bold rounded-full text-[11px] inline-flex items-center gap-1 border border-rose-300 shadow-sm">
+                          ✕ Inválida
                         </span>
                       )}
                     </td>
@@ -393,10 +429,11 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
             </table>
           </div>
 
-          <div className="flex justify-between items-center pt-2">
+          {/* Botões de Ação */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 border-t border-slate-100">
             <button
               onClick={() => setStep(1)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50"
+              className="w-full sm:w-auto px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors"
             >
               Voltar / Trocar Planilha
             </button>
@@ -404,7 +441,7 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
             <button
               onClick={handleConfirmImport}
               disabled={isUploading || totalAProcessar === 0}
-              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-md shadow-emerald-200"
+              className="w-full sm:w-auto px-8 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-lg shadow-emerald-200 active:scale-95"
             >
               {isUploading ? 'Processando Baixas...' : `Confirmar e Baixar ${totalAProcessar} Máquinas`}
             </button>
@@ -412,23 +449,26 @@ const ImportBaixasMPWizard: React.FC<ImportBaixasMPWizardProps> = ({ onSuccess }
         </div>
       )}
 
+      {/* Passo 3: Sucesso */}
       {step === 3 && (
-        <div className="p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+        <div className="p-10 text-center space-y-4">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto text-4xl shadow-sm">
             ✓
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-800">Baixas Processadas com Sucesso!</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              As máquinas foram atualizadas com o status <strong>BAIXADA</strong> e vinculadas aos respectivos consultores, supervisores e datas de venda.
+            <h3 className="text-2xl font-black text-slate-900">Baixas Processadas com Sucesso!</h3>
+            <p className="text-sm text-slate-600 mt-2 max-w-md mx-auto">
+              As máquinas foram atualizadas com o status <strong>BAIXADA</strong> e vinculadas aos respectivos consultores, supervisores e datas de venda no sistema.
             </p>
           </div>
-          <button
-            onClick={onSuccess}
-            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-md"
-          >
-            Fechar e Voltar ao Estoque
-          </button>
+          <div className="pt-4">
+            <button
+              onClick={onSuccess}
+              className="px-8 py-3.5 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 active:scale-95"
+            >
+              Fechar e Atualizar Estoque
+            </button>
+          </div>
         </div>
       )}
     </div>

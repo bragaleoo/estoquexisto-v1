@@ -355,8 +355,9 @@ const App: React.FC = () => {
       const novosEventos: EventoMaquina[] = [];
 
       for (const item of itensParaProcessar) {
-        const existing = dbMap.get(item.serialNormalizado);
+        const existing = (item.maquinaIdExistente ? maquinas.find(m => m.id === item.maquinaIdExistente) : null) || dbMap.get(item.serialNormalizado);
         const mId = existing?.id || item.maquinaIdExistente || crypto.randomUUID();
+        const serialFinal = existing?.serial || item.serialNormalizado;
         const pedidoId = existing?.pedido_id || loteMpId || (pedidos[0]?.id || crypto.randomUUID());
         let dataBaixaIso = timestamp;
         if (item.dataBaixa) {
@@ -369,7 +370,7 @@ const App: React.FC = () => {
 
         maquinasParaUpsert.push({
           id: mId,
-          serial: item.serialNormalizado,
+          serial: serialFinal,
           pedido_id: pedidoId,
           status_estoque: 'BAIXADA',
           supervisor_id: item.supervisorId || null,

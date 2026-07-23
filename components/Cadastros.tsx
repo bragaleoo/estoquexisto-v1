@@ -565,8 +565,8 @@ const Cadastros: React.FC = () => {
                 )}
             </div>
             
-            <Modal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} title="Importar Novo Lote"><ImportWizard onSuccess={() => setImportModalOpen(false)} /></Modal>
-            <Modal isOpen={isBaixasMPModalOpen} onClose={() => setBaixasMPModalOpen(false)} title="Baixa Automática Mercado Pago"><ImportBaixasMPWizard onSuccess={() => setBaixasMPModalOpen(false)} /></Modal>
+            <Modal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} title="Importar Novo Lote" maxWidth="max-w-6xl"><ImportWizard onSuccess={() => setImportModalOpen(false)} /></Modal>
+            <Modal isOpen={isBaixasMPModalOpen} onClose={() => setBaixasMPModalOpen(false)} title="Baixa Automática Mercado Pago" maxWidth="max-w-6xl"><ImportBaixasMPWizard onSuccess={() => setBaixasMPModalOpen(false)} /></Modal>
             <Modal isOpen={isManualModalOpen} onClose={() => setManualModalOpen(false)} title="Novo Registro Manual">
                 <div className="space-y-4">
                     <input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black uppercase" placeholder="SERIAL" value={manualData.serial} onChange={e => setManualData({...manualData, serial: e.target.value.toUpperCase()})} />
