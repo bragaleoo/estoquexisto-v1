@@ -1,38 +1,32 @@
 
 import React from 'react';
 
-// Logo de alta fidelidade para a tela de login (conforme imagem do usuário)
-export const XistoBrandLogo: React.FC = () => (
-  <div className="flex flex-col items-center select-none">
-    {/* Símbolo: Retângulo Branco com X Preto */}
-    <div className="w-[100px] h-[140px] bg-white flex items-center justify-center shadow-[0_20px_50px_rgba(0,0,0,0.3)] mb-8">
-      <svg viewBox="0 0 100 100" className="w-16 h-16">
-        <path d="M20 20L80 80M80 20L20 80" stroke="black" strokeWidth="10" strokeLinecap="square" />
-      </svg>
+// Logo de alta fidelidade para a tela de login (conforme imagem oficial do usuário)
+export const XistoBrandLogo: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`flex flex-col items-center select-none ${className}`}>
+    <div className="bg-white p-6 sm:p-7 rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] border border-white/20 flex flex-col items-center justify-center max-w-[260px] sm:max-w-[290px] transition-all hover:scale-[1.02] duration-300">
+      <img 
+        src="/LOGOXISTO.jpg" 
+        alt="Xisto - Criando Oportunidades" 
+        className="w-full h-auto object-contain rounded-md"
+      />
     </div>
-    
-    {/* Texto Principal: Xisto em Serifa Didot/Bodoni style */}
-    <h1 className="text-white text-8xl tracking-tight leading-none" style={{ fontFamily: 'Georgia, serif' }}>
-      Xisto
-    </h1>
-    
-    {/* Tagline: CRIANDO OPORTUNIDADES com espaçamento largo */}
-    <p className="text-white text-[12px] font-medium tracking-[0.55em] mt-5 uppercase opacity-90">
-      Criando Oportunidades
-    </p>
   </div>
 );
 
-// Logo simplificada para o Sidebar e Header (interior do sistema)
-export const XistoLogo: React.FC<{ className?: string, variant?: 'full' | 'icon' }> = ({ className = 'w-10 h-10', variant = 'icon' }) => {
+// Logo oficial para o Sidebar e Header (interior do sistema no canto superior esquerdo)
+export const XistoLogo: React.FC<{ className?: string, variant?: 'full' | 'icon' }> = ({ className = '', variant = 'full' }) => {
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-        <div className="bg-slate-950 w-10 h-10 flex items-center justify-center rounded-xl shadow-lg">
-            <svg viewBox="0 0 100 100" className="w-6 h-6">
-                <path d="M25 25L75 75M75 25L25 75" stroke="white" strokeWidth="15" strokeLinecap="round" />
-            </svg>
+    <div className={`flex items-center gap-3.5 select-none ${className}`}>
+      <div className="bg-white p-1 rounded-xl shadow-md border border-slate-200/80 flex items-center justify-center overflow-hidden h-12 w-12 flex-shrink-0 transition-shadow hover:shadow-lg">
+        <img src="/LOGOXISTO.jpg" alt="Logo Xisto" className="w-full h-full object-contain" />
+      </div>
+      {variant === 'full' && (
+        <div className="flex flex-col text-left">
+          <span className="font-extrabold text-xl text-slate-900 leading-tight tracking-tight">Xisto</span>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gestão de Estoque</span>
         </div>
-        {variant === 'full' && <span className="font-serif text-2xl font-black tracking-tighter text-slate-950">Xisto</span>}
+      )}
     </div>
   );
 };

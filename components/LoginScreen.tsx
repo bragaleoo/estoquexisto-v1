@@ -67,62 +67,67 @@ const LoginScreen: React.FC<{ onLogin: (user: UserProfile) => void }> = ({ onLog
     <div className="min-h-screen flex items-center justify-center bg-[#0d2a2d] p-4 font-sans selection:bg-blue-100 overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-transparent to-black/60 pointer-events-none"></div>
 
-      <div className="max-w-md w-full flex flex-col items-center space-y-12 relative z-10">
+      <div className="max-w-md w-full flex flex-col items-center space-y-8 relative z-10">
         <XistoBrandLogo />
 
-        <div className="w-full bg-white rounded-[2.5rem] shadow-[0_40px_100px_-15px_rgba(0,0,0,0.6)] border-2 border-white/10 p-10 space-y-8 animate-fadeIn">
-            <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-2">
-                    <label className="block text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] ml-1">Usuário</label>
+        <div className="w-full bg-white rounded-3xl shadow-[0_30px_70px_-15px_rgba(0,0,0,0.5)] border border-slate-100 p-8 sm:p-10 space-y-6 animate-fadeIn">
+            <div className="text-center space-y-1">
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Acesso ao Sistema</h2>
+              <p className="text-xs text-slate-500 font-medium">Informe suas credenciais para continuar</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 tracking-wide ml-0.5">Usuário</label>
                     <input 
                         type="text" 
                         required
                         placeholder="Ex: aju01, se04, al03"
-                        className="w-full p-5 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-950 outline-none focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-300 text-lg"
+                        className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 outline-none focus:border-slate-800 focus:bg-white focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-400 text-sm"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                     />
                 </div>
 
-                <div className="space-y-2 relative">
-                    <label className="block text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] ml-1">Senha</label>
+                <div className="space-y-1.5 relative">
+                    <label className="block text-xs font-semibold text-slate-700 tracking-wide ml-0.5">Senha</label>
                     <div className="relative group">
                         <input 
                             type={showPassword ? 'text' : 'password'} 
                             required
                             placeholder="••••••••"
-                            className="w-full p-5 pr-14 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-950 outline-none focus:border-slate-900 focus:bg-white focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-300 text-lg"
+                            className="w-full px-4 py-3.5 pr-12 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-900 outline-none focus:border-slate-800 focus:bg-white focus:ring-4 focus:ring-slate-100 transition-all placeholder:text-slate-400 text-sm"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
                         <button 
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-900 transition-colors"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700 transition-colors"
                         >
-                            {showPassword ? <EyeOffIcon className="w-6 h-6" /> : <EyeIcon className="w-6 h-6" />}
+                            {showPassword ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
                         </button>
                     </div>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 border-2 border-red-200 p-4 rounded-xl text-center animate-shake">
-                        <p className="text-[10px] font-black text-red-700 uppercase tracking-widest leading-relaxed">{error}</p>
+                    <div className="bg-red-50 border border-red-200 p-3.5 rounded-xl text-center animate-shake">
+                        <p className="text-xs font-semibold text-red-600 tracking-wide">{error}</p>
                     </div>
                 )}
 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-slate-950 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all active:scale-[0.97] mt-4 flex items-center justify-center gap-3 group disabled:opacity-50"
+                    className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold text-sm uppercase tracking-wider shadow-lg hover:bg-slate-950 transition-all active:scale-[0.98] mt-2 flex items-center justify-center gap-2 group disabled:opacity-50"
                 >
-                    {loading ? 'AUTENTICANDO...' : 'Entrar no Portal'}
-                    {!loading && <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3"/></svg>}
+                    {loading ? 'Autenticando...' : 'Entrar no Portal'}
+                    {!loading && <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"/></svg>}
                 </button>
             </form>
 
-            <div className="text-center">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Acesso restrito a colaboradores autorizados.</p>
+            <div className="text-center pt-2">
+                <p className="text-[11px] font-medium text-slate-400">Acesso restrito a colaboradores autorizados.</p>
             </div>
         </div>
       </div>

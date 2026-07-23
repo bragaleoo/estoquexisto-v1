@@ -24,14 +24,14 @@ const NavItem: React.FC<{
 }> = ({ icon, label, isActive, onClick }) => (
   <button
     onClick={onClick}
-    className={`flex items-center w-full px-4 py-3 text-left transition-colors duration-200 font-medium ${
+    className={`flex items-center w-full px-3.5 py-2.5 text-left transition-all duration-200 ${
       isActive
-        ? 'bg-slate-900 text-white shadow-lg shadow-slate-200 rounded-lg'
-        : 'text-gray-700 hover:bg-gray-200 rounded-lg'
+        ? 'bg-slate-900 text-white shadow-md shadow-slate-900/10 rounded-xl font-semibold'
+        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-xl font-medium'
     }`}
   >
-    {icon}
-    <span className="ml-3 font-black text-[11px] uppercase tracking-wider">{label}</span>
+    <span className={isActive ? 'text-white' : 'text-slate-500'}>{icon}</span>
+    <span className="ml-3 text-xs tracking-wide">{label}</span>
   </button>
 );
 
@@ -45,7 +45,7 @@ const Layout: React.FC = () => {
     { id: 'relatorios' as Page, label: 'Auditoria e Logs', icon: <FileTextIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Estoquista'] },
     { id: 'devolucoes' as Page, label: 'Devoluções', icon: <RefreshCwIcon className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'credenciamentos' as Page, label: 'Credenciamentos', icon: <BarChartIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
-    { id: 'analise-inteligencia' as Page, label: 'Inteligência de Negócios (em andamento)', icon: <BrainIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
+    { id: 'analise-inteligencia' as Page, label: 'Inteligência de Negócios', icon: <BrainIcon className="w-5 h-5" />, roles: ['Administrador', 'Supervisor'] },
     { id: 'limpeza-dados' as Page, label: 'Limpeza de Dados', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Estoquista'] },
     { id: 'gerir-consultores' as Page, label: 'Gerir Equipe', icon: <Users className="w-5 h-5" />, roles: ['Administrador', 'Supervisor', 'Estoquista'] },
   ];
@@ -79,8 +79,8 @@ const Layout: React.FC = () => {
     if (loading) {
       return (
         <div className="flex flex-col items-center justify-center h-full space-y-4">
-           <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
-           <p className="font-black text-[10px] uppercase tracking-[0.3em] text-slate-400">Iniciando Sistema...</p>
+           <div className="w-10 h-10 border-3 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
+           <p className="text-xs font-semibold tracking-wider text-slate-500 uppercase">Iniciando Sistema...</p>
         </div>
       );
     }
@@ -108,17 +108,20 @@ const Layout: React.FC = () => {
   };
 
   const sidebarContent = (
-     <div className="h-full flex flex-col bg-white text-gray-800 border-r-2 border-gray-100">
-        <div className="flex flex-col items-center justify-center py-10 px-6 border-b-2 border-gray-50 bg-slate-50/30">
-          <XistoLogo variant="full" className="scale-110" />
+     <div className="h-full flex flex-col bg-white text-slate-800 border-r border-slate-200/80">
+        {/* Superior Esquerdo - Logo Xisto e Informação */}
+        <div className="flex items-center justify-between py-5 px-5 border-b border-slate-100 bg-white">
+          <XistoLogo variant="full" />
         </div>
-        <div className="p-4">
-          <div className="bg-slate-950 p-5 rounded-2xl shadow-xl shadow-slate-200 border border-slate-800">
-            <p className="text-xs font-black text-white uppercase tracking-tight truncate">{currentUser?.nome}</p>
-            <p className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">{currentUser?.perfil}</p>
+
+        <div className="p-3.5">
+          <div className="bg-slate-900 p-3.5 rounded-2xl shadow-sm border border-slate-800">
+            <p className="text-xs font-bold text-white tracking-tight truncate">{currentUser?.nome}</p>
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">{currentUser?.perfil}</p>
           </div>
         </div>
-        <nav className="flex-grow px-2 space-y-1">
+
+        <nav className="flex-grow px-3 space-y-1 overflow-y-auto">
             {filteredNavItems.map(item => (
                 <NavItem
                     key={item.id}
@@ -132,15 +135,16 @@ const Layout: React.FC = () => {
                 />
             ))}
         </nav>
-        <div className="p-4 mt-auto border-t-2 border-gray-50">
+
+        <div className="p-3.5 mt-auto border-t border-slate-100">
           {isSyncing && (
-             <div className="flex items-center justify-center gap-2 mb-4 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg animate-pulse">
+             <div className="flex items-center justify-center gap-2 mb-3 px-2 py-1.5 bg-blue-50 text-blue-700 rounded-xl animate-pulse">
                 <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-                <span className="text-[9px] font-black uppercase tracking-widest">Sincronizando Dados...</span>
+                <span className="text-[10px] font-semibold tracking-wide">Sincronizando...</span>
              </div>
           )}
-          <button onClick={logout} className="flex items-center w-full px-4 py-3 text-left text-gray-700 font-black text-[11px] uppercase tracking-widest hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors duration-200">
-            <LogoutIcon className="w-5 h-5" />
+          <button onClick={logout} className="flex items-center w-full px-3.5 py-2.5 text-left text-slate-600 font-semibold text-xs tracking-wide hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors duration-200">
+            <LogoutIcon className="w-4 h-4 text-slate-400 group-hover:text-red-600" />
             <span className="ml-3">Sair da conta</span>
           </button>
         </div>
@@ -148,7 +152,7 @@ const Layout: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
+    <div className="flex h-screen bg-slate-50 font-sans">
       <aside className="hidden md:block md:w-64 flex-shrink-0">
         {sidebarContent}
       </aside>
@@ -159,18 +163,18 @@ const Layout: React.FC = () => {
          </div>
          <div className="absolute top-4 right-4">
              <button onClick={() => setSidebarOpen(false)} className="bg-slate-900 p-2 rounded-full text-white">
-                <XIcon className="w-6 h-6" />
+                <XIcon className="w-5 h-5" />
              </button>
          </div>
       </div>
-      {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>}
+      {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="md:hidden flex justify-between items-center bg-white p-4 border-b-2 border-gray-100 shadow-sm">
+        <header className="md:hidden flex justify-between items-center bg-white px-4 py-3 border-b border-slate-200/80 shadow-sm">
             <XistoLogo variant="full" />
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-800 p-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16m-7 6h7" />
+          <button onClick={() => setSidebarOpen(true)} className="text-slate-800 p-2 rounded-lg hover:bg-slate-100">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" />
             </svg>
           </button>
         </header>
