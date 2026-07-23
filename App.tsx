@@ -1,6 +1,6 @@
 
 import React, { useState, createContext, useMemo, useEffect } from 'react';
-import { Maquina, UserProfile, Pedido, Importacao, ImportacaoItem, EventoMaquina, MotivoBaixa, StatusEstoque, Devolucao, Regiao } from './types';
+import { Maquina, UserProfile, Pedido, Importacao, ImportacaoItem, EventoMaquina, MotivoBaixa, StatusEstoque, Devolucao, Regiao, ItemBaixaMP } from './types';
 import LoginScreen from './components/LoginScreen';
 import Layout from './components/Layout';
 import { supabase } from './supabase';
@@ -21,6 +21,7 @@ interface AppContextType {
   atribuirEmLote: (maquinaIds: string[], supervisorId: number, consultorNome: string, dataAtribuicao?: string) => Promise<void>;
   atualizarMaquina: (maquinaId: string, supervisorId: number, consultorNome: string, novaRegiao?: Regiao) => Promise<void>;
   baixarEmLote: (maquinaIds: string[], motivo: MotivoBaixa, observacao: string, dataBaixa?: string) => Promise<void>;
+  executarBaixaMercadoPago: (itens: ItemBaixaMP[], cadastrarNaoEncontradas?: boolean) => Promise<void>;
   desfazerBaixa: (maquinaId: string, justificativa: string) => Promise<void>;
   disponibilizarEmLote: (maquinaIds: string[]) => Promise<void>;
   alterarRegiaoEmLote: (maquinaIds: string[], novaRegiao: Regiao) => Promise<void>;
@@ -314,6 +315,112 @@ const App: React.FC = () => {
     triggerRefresh();
   };
 
+  const executarBaixaMercadoPago = async (itens: ItemBaixaMP[], cadastrarNaoEncontradas: boolean = false) => {
+    setIsSyncing(true);
+    try {
+      const timestamp = new Date().toISOString();
+      const currentUserNome = currentUser?.nome || 'Sistema';
+
+      const itensParaProcessar = itens.filter(item => 
+        item.statusProcessamento === 'PRONTA' || (cadastrarNaoEncontradas && item.statusProcessamento === 'NAO_ENCONTRADA')
+      );
+
+      if (itensParaProcessar.length === 0) return;
+
+      const batchSerials = itensParaProcessar.map(i => i.serialNormalizado);
+      const { data: dbMatches } = await supabase.from('maquinas').select('id, serial, pedido_id, regiao, atribuido_em').in('serial', batchSerials);
+      const dbMap = new Map<string, any>();
+      dbMatches?.forEach(m => dbMap.set(m.serial, m));
+
+      let loteMpId: string | null = null;
+      if (cadastrarNaoEncontradas) {
+        const loteCode = 'LOTE_MERCADOPAGO_AUTO';
+        let pedidoMp = pedidos.find(p => p.codigo_pedido === loteCode);
+        if (!pedidoMp) {
+          loteMpId = crypto.randomUUID();
+          await supabase.from('pedidos').insert({
+            id: loteMpId,
+            codigo_pedido: loteCode,
+            qtd_importada: 0,
+            status_importacao: 'PARCIAL',
+            criado_em: timestamp,
+            criado_por: currentUserNome
+          });
+        } else {
+          loteMpId = pedidoMp.id;
+        }
+      }
+
+      const maquinasParaUpsert: any[] = [];
+      const novosEventos: EventoMaquina[] = [];
+
+      for (const item of itensParaProcessar) {
+        const existing = dbMap.get(item.serialNormalizado);
+        const mId = existing?.id || item.maquinaIdExistente || crypto.randomUUID();
+        const pedidoId = existing?.pedido_id || loteMpId || (pedidos[0]?.id || crypto.randomUUID());
+        let dataBaixaIso = timestamp;
+        if (item.dataBaixa) {
+          try {
+            dataBaixaIso = new Date(item.dataBaixa.includes('T') ? item.dataBaixa : item.dataBaixa + 'T12:00:00').toISOString();
+          } catch {
+            dataBaixaIso = timestamp;
+          }
+        }
+
+        maquinasParaUpsert.push({
+          id: mId,
+          serial: item.serialNormalizado,
+          pedido_id: pedidoId,
+          status_estoque: 'BAIXADA',
+          supervisor_id: item.supervisorId || null,
+          consultor_nome: item.consultorNome || null,
+          regiao: item.regiao || existing?.regiao || null,
+          baixado_em: dataBaixaIso,
+          atribuido_em: existing?.atribuido_em || dataBaixaIso,
+          baixado_por: currentUserNome,
+          motivo_baixa: item.motivoBaixa || 'VENDA',
+          observacao_baixa: item.observacaoBaixa || 'Baixa Automática Mercado Pago'
+        });
+
+        novosEventos.push({
+          id: crypto.randomUUID(),
+          maquina_id: mId,
+          tipo_evento: 'BAIXA',
+          criado_em: timestamp,
+          criado_por: currentUserNome,
+          payload: {
+            after: {
+              status: 'BAIXADA',
+              motivo: item.motivoBaixa || 'VENDA',
+              consultor: item.consultorNome,
+              supervisor: item.supervisorId,
+              data_baixa: dataBaixaIso,
+              observacao: item.observacaoBaixa,
+              fonte: 'IMPORTACAO_MP'
+            }
+          }
+        });
+      }
+
+      const chunkSize = 200;
+      if (maquinasParaUpsert.length > 0) {
+        for (let i = 0; i < maquinasParaUpsert.length; i += chunkSize) {
+          await supabase.from('maquinas').upsert(maquinasParaUpsert.slice(i, i + chunkSize), { onConflict: 'serial' });
+        }
+        for (let i = 0; i < novosEventos.length; i += chunkSize) {
+          await supabase.from('eventos_maquina').insert(novosEventos.slice(i, i + chunkSize));
+        }
+      }
+
+      triggerRefresh();
+    } catch (err) {
+      console.error("Erro na baixa automatizada Mercado Pago:", err);
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const disponibilizarEmLote = async (maquinaIds: string[]) => {
     setIsSyncing(true);
     const timestamp = new Date().toISOString();
@@ -383,7 +490,7 @@ const App: React.FC = () => {
 
   const contextValue = useMemo(() => ({
     currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing, triggerRefresh,
-    executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, editarDevolucao, excluirDevolucao, login: handleLogin, logout: handleLogout,
+    executarImportacao, registrarMaquinaManual, atribuirEmLote, atualizarMaquina, baixarEmLote, executarBaixaMercadoPago, desfazerBaixa, disponibilizarEmLote, alterarRegiaoEmLote, registrarDevolucao, atualizarEnvioDevolucao, editarDevolucao, excluirDevolucao, login: handleLogin, logout: handleLogout,
   }), [currentUser, pedidos, maquinas, importacoes, importacaoItens, eventos, devolucoes, loading, isSyncing]);
 
   return (

@@ -100,3 +100,19 @@ export interface Supervisor {
 }
 
 export type Page = 'dashboard' | 'cadastros' | 'pedidos' | 'relatorios' | 'devolucoes' | 'acompanhamento' | 'credenciamentos' | 'gerir-consultores' | 'analise-inteligencia' | 'limpeza-dados';
+
+export interface ItemBaixaMP {
+  linha: number;
+  serialOriginal: string;
+  serialNormalizado: string;
+  consultorNome?: string;
+  supervisorId?: number;
+  dataBaixa: string; // ISO date string ou yyyy-mm-dd
+  motivoBaixa: MotivoBaixa;
+  observacaoBaixa?: string;
+  regiao?: Regiao;
+  statusProcessamento: 'PRONTA' | 'JA_BAIXADA' | 'NAO_ENCONTRADA' | 'INVALIDA';
+  erroMotivo?: string;
+  maquinaIdExistente?: string;
+}
+

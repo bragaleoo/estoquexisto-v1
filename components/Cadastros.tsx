@@ -4,6 +4,7 @@ import stringSimilarity from 'string-similarity';
 import { AppContext } from '../App';
 import Modal from './ui/Modal';
 import ImportWizard from './ImportWizard';
+import ImportBaixasMPWizard from './ImportBaixasMPWizard';
 import { FileTextIcon, EditIcon, RefreshCwIcon, CreditCardIcon, ChevronDownIcon } from './ui/Icons';
 import { SUPERVISORES } from '../constants';
 import { MotivoBaixa, Maquina, Regiao, StatusEstoque } from '../types';
@@ -14,6 +15,7 @@ type SortDirection = 'asc' | 'desc';
 const Cadastros: React.FC = () => {
     const context = useContext(AppContext);
     const [isImportModalOpen, setImportModalOpen] = useState(false);
+    const [isBaixasMPModalOpen, setBaixasMPModalOpen] = useState(false);
     const [isManualModalOpen, setManualModalOpen] = useState(false);
     
     const [filterPedido, setFilterPedido] = useState('');
@@ -389,6 +391,9 @@ const Cadastros: React.FC = () => {
                         <button onClick={() => setImportModalOpen(true)} className="bg-blue-700 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-blue-800 transition flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
                             <FileTextIcon className="w-5 h-5" /> Importar Lote
                         </button>
+                        <button onClick={() => setBaixasMPModalOpen(true)} className="bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg hover:bg-emerald-700 transition flex items-center gap-2 font-black uppercase text-[10px] tracking-widest">
+                            <FileTextIcon className="w-5 h-5" /> Baixa Automática MP
+                        </button>
                     </div>
                 )}
             </div>
@@ -561,6 +566,7 @@ const Cadastros: React.FC = () => {
             </div>
             
             <Modal isOpen={isImportModalOpen} onClose={() => setImportModalOpen(false)} title="Importar Novo Lote"><ImportWizard onSuccess={() => setImportModalOpen(false)} /></Modal>
+            <Modal isOpen={isBaixasMPModalOpen} onClose={() => setBaixasMPModalOpen(false)} title="Baixa Automática Mercado Pago"><ImportBaixasMPWizard onSuccess={() => setBaixasMPModalOpen(false)} /></Modal>
             <Modal isOpen={isManualModalOpen} onClose={() => setManualModalOpen(false)} title="Novo Registro Manual">
                 <div className="space-y-4">
                     <input type="text" className="w-full p-4 border-2 border-slate-200 rounded-xl font-black uppercase" placeholder="SERIAL" value={manualData.serial} onChange={e => setManualData({...manualData, serial: e.target.value.toUpperCase()})} />
